@@ -1,6 +1,7 @@
 import { Button, Container } from '@mui/material'
-import { Category } from './components/Category'
+
 import { useTheme } from './context/ThemeContext'
+import { Category } from './components/organisms/Category'
 
 function App() {
   const { toggleTheme } = useTheme()
