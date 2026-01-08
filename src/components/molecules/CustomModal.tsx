@@ -15,6 +15,7 @@ interface CustomModalProps {
   title?: string
   label?: string
   initialValue?: string
+  onChange?: (value: string) => void
 }
 
 export const CustomModal = ({

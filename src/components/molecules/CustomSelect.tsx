@@ -28,8 +28,6 @@ export const CustomSelect = ({
         {...props}
       >
         {children}
-
-        {/* <ListSubheader>Category 2</ListSubheader> */}
       </Select>
     </FormControl>
   )

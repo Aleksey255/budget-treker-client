@@ -6,3 +6,5 @@ export interface Transactions {
   description: string
   date: string
 }
+
+export type NewTransaction = Omit<Transactions, '_id'>

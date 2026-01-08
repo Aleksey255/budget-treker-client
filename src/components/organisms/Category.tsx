@@ -16,39 +16,45 @@ export const Category = () => {
     deleteItem,
     updateItem,
   } = useApi<Categories>('/categories')
-  const [selectedId, setSelectedId] = useState<string>('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [newCategory, setNewCategory] = useState<string>('')
-  const [open, setOpen] = useState(false)
 
-  const handleOpen = () => setOpen(true)
+  const [selectedId, setSelectedId] = useState('')
+  const [newCategory, setNewCategory] = useState('')
+  const [open, setOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+
+  const selectedCategory =
+    categories.find(cat => cat._id === selectedId) ?? null
+
+  const handleOpen = () => {
+    if (selectedCategory) {
+      setEditName(selectedCategory.name)
+      console.log(selectedCategory.name)
+      setOpen(true)
+    }
+  }
+
   const handleClose = () => {
     setOpen(false)
-    setSelectedCategory('')
-    setSelectedId('')
+    setEditName('')
   }
 
   const handleSaveEdit = async (newName: string) => {
     if (newName.trim() && selectedId) {
-      await updateItem(selectedId, { name: newName })
+      await updateItem(selectedId, { name: newName.trim() })
     }
     handleClose()
   }
 
   const handleAddItem = async () => {
-    if (newCategory.trim()) {
-      await addItem({ name: newCategory })
+    const trimmed = newCategory.trim()
+    if (trimmed) {
+      await addItem({ name: trimmed })
       setNewCategory('')
     }
   }
 
   const handleChange = (e: SelectChangeEvent<string>) => {
-    const categoryName = e.target.value
-    const category = categories.find(cat => cat.name === categoryName)
-    if (category) {
-      setSelectedId(category._id)
-      setSelectedCategory(categoryName)
-    }
+    setSelectedId(e.target.value)
   }
 
   return (
@@ -62,12 +68,13 @@ export const Category = () => {
       <CustomSelect
         label="Выберите категорию"
         width={200}
-        value={selectedCategory}
+        value={selectedId}
         onChange={handleChange}
       >
-        {categories && Array.isArray(categories) ? (
+        <MenuItem value="">— Не выбрано —</MenuItem>
+        {categories ? (
           categories.map(item => (
-            <MenuItem key={item._id} value={item.name}>
+            <MenuItem key={item._id} value={item._id}>
               {item.name}
             </MenuItem>
           ))
@@ -75,14 +82,14 @@ export const Category = () => {
           <MenuItem disabled>Загрузка...</MenuItem>
         )}
       </CustomSelect>
-      {selectedCategory && (
+      {selectedId && selectedCategory && (
         <div>
           <IconButton
             size="small"
             color="error"
             onClick={() => {
-              setSelectedCategory('')
               deleteItem(selectedId)
+              setSelectedId('')
             }}
             title="Удалить выбранную категорию"
           >
@@ -103,7 +110,8 @@ export const Category = () => {
         onSave={handleSaveEdit}
         title="Изменить категорию"
         label="Название категории"
-        initialValue={selectedCategory}
+        initialValue={editName}
+        onChange={setEditName}
       />
 
       <TextField
@@ -113,7 +121,11 @@ export const Category = () => {
         onChange={e => setNewCategory(e.target.value)}
       />
 
-      <Button variant="outlined" onClick={handleAddItem}>
+      <Button
+        variant="outlined"
+        onClick={handleAddItem}
+        disabled={!newCategory.trim()}
+      >
         Добавить
       </Button>
     </Stack>

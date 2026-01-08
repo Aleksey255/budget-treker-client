@@ -2,6 +2,7 @@ import { Button, Container } from '@mui/material'
 
 import { useTheme } from './context/ThemeContext'
 import { Category } from './components/organisms/Category'
+import { Transaction } from './components/organisms/Transaction'
 
 function App() {
   const { toggleTheme } = useTheme()
@@ -14,6 +15,7 @@ function App() {
         </Button>
       </Container>
       <Category />
+      <Transaction />
     </>
   )
 }
