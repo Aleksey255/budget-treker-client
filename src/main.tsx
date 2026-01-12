@@ -1,25 +1,14 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ThemeProviderWrapper, useTheme } from './context/ThemeContext.tsx'
-import { CssBaseline } from '@mui/material'
-import { ThemeProvider } from '@mui/material/styles'
-import App from './App.tsx'
-
-const Root = () => {
-  const { theme } = useTheme()
-
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <App />
-    </ThemeProvider>
-  )
-}
+import { ThemeProviderWrapper } from './context/ThemeContext'
+import { Root } from './Root'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProviderWrapper>
-      <Root />
+      <Suspense fallback="Загрузка...">
+        <Root />
+      </Suspense>
     </ThemeProviderWrapper>
   </StrictMode>
 )
