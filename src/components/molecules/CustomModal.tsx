@@ -43,6 +43,8 @@ export const CustomModal = ({
           autoFocus
           margin="dense"
           label={label}
+          name="Modal"
+          id="Modal"
           type="text"
           fullWidth
           variant="outlined"

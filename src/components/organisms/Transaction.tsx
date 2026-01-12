@@ -1,5 +1,3 @@
-import { useApi } from '@/hooks/useApi'
-import type { Transactions, NewTransaction } from '@/types/transaction'
 import {
   Button,
   List,
@@ -7,15 +5,20 @@ import {
   MenuItem,
   Stack,
   TextField,
-  type SelectChangeEvent,
 } from '@mui/material'
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { CustomSelect } from '../molecules/CustomSelect'
-import type { Categories } from '@/types/category'
+import {
+  useAddTransactionMutation,
+  useGetCategoriesQuery,
+  useGetTransactionsQuery,
+} from '@/store/apiSlice'
+import type { NewTransaction } from '@/types/transaction'
 
 export const Transaction = () => {
-  const { data: transactions, addItem } = useApi<Transactions>('/transactions')
-  const { data: categories } = useApi<Categories>('/categories')
+  const { data: transactions = [] } = useGetTransactionsQuery()
+  const { data: categories = [] } = useGetCategoriesQuery()
+  const [addTransaction] = useAddTransactionMutation()
   const [newTransaction, setNewTransaction] = useState<NewTransaction>({
     type: 'expense',
     amount: 0,
@@ -24,28 +27,14 @@ export const Transaction = () => {
     date: new Date().toISOString().split('T')[0],
   })
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setNewTransaction({
-      ...newTransaction,
-      [name]: name === 'amount' ? Number(value) || 0 : value,
-    })
-  }
-
-  const handleSelectChange = (e: SelectChangeEvent<string>) => {
-    const { name, value } = e.target
-    setNewTransaction({
-      ...newTransaction,
-      [name]: value,
-    })
-  }
-
-  const handleAddItem = async () => {
+  const handleSubmit = async () => {
     if (!newTransaction.amount || !newTransaction.categoryId) {
-      alert('Заполните сумму и выберите категорию')
+      alert('Заполните сумму и категорию')
       return
     }
-    await addItem(newTransaction)
+
+    await addTransaction(newTransaction).unwrap() // ← автоматом: refetch reports + transactions
+
     setNewTransaction({
       type: 'expense',
       amount: 0,
@@ -75,11 +64,32 @@ export const Transaction = () => {
         ))}
       </List>
       <CustomSelect
+        label="Категория"
+        width={200}
+        name="categoryId"
+        value={newTransaction.categoryId}
+        onChange={e =>
+          setNewTransaction({ ...newTransaction, categoryId: e.target.value })
+        }
+      >
+        <MenuItem value="">— Выберите —</MenuItem>
+        {categories.map(cat => (
+          <MenuItem key={cat._id} value={cat._id}>
+            {cat.name}
+          </MenuItem>
+        ))}
+      </CustomSelect>
+      <CustomSelect
         label="Тип"
         width={200}
         name="type"
         value={newTransaction.type}
-        onChange={handleSelectChange}
+        onChange={e =>
+          setNewTransaction({
+            ...newTransaction,
+            type: e.target.value as 'income' | 'expense',
+          })
+        }
       >
         <MenuItem value="income">Доход</MenuItem>
         <MenuItem value="expense">Расход</MenuItem>
@@ -89,46 +99,42 @@ export const Transaction = () => {
         variant="outlined"
         type="number"
         name="amount"
+        id="amount"
         value={newTransaction.amount}
-        onChange={handleInputChange}
+        onChange={e =>
+          setNewTransaction({ ...newTransaction, amount: +e.target.value || 0 })
+        }
         fullWidth
       />
-      <CustomSelect
-        label="Категория"
-        width={200}
-        name="categoryId"
-        value={newTransaction.categoryId}
-        onChange={handleSelectChange}
-      >
-        <MenuItem value="">— Выберите —</MenuItem>
-        {categories.map(cat => (
-          <MenuItem key={cat._id} value={cat._id}>
-            {cat.name}
-          </MenuItem>
-        ))}
-      </CustomSelect>
+
       <TextField
         label="Описание"
         variant="outlined"
         name="description"
+        id="description"
         value={newTransaction.description}
-        onChange={handleInputChange}
+        onChange={e =>
+          setNewTransaction({ ...newTransaction, description: e.target.value })
+        }
         fullWidth
       />
       <TextField
         label="Дата"
         variant="outlined"
         name="date"
+        id="date"
         type="date"
         value={newTransaction.date}
-        onChange={handleInputChange}
+        onChange={e =>
+          setNewTransaction({ ...newTransaction, date: e.target.value })
+        }
         fullWidth
       />
 
       <Button
         variant="contained"
         color="primary"
-        onClick={handleAddItem}
+        onClick={handleSubmit}
         sx={{ mt: 2 }}
       >
         Добавить транзакцию

@@ -1,21 +1,23 @@
 import { useState } from 'react'
 
 import type { SelectChangeEvent } from '@mui/material'
-import type { Categories } from '@/types/category'
 
 import { Button, IconButton, MenuItem, Stack, TextField } from '@mui/material'
 import { Close, Edit } from '@mui/icons-material'
 import { CustomModal } from '../molecules/CustomModal'
 import { CustomSelect } from '../molecules/CustomSelect'
-import { useApi } from '@/hooks/useApi'
+import {
+  useGetCategoriesQuery,
+  useAddCategoryMutation,
+  useDeleteCategoryMutation,
+  useUpdateCategoryMutation,
+} from '@/store/apiSlice'
 
 export const Category = () => {
-  const {
-    data: categories,
-    addItem,
-    deleteItem,
-    updateItem,
-  } = useApi<Categories>('/categories')
+  const { data: categories = [], isLoading } = useGetCategoriesQuery()
+  const [addCategory] = useAddCategoryMutation()
+  const [deleteCategory] = useDeleteCategoryMutation()
+  const [updateCategory] = useUpdateCategoryMutation()
 
   const [selectedId, setSelectedId] = useState('')
   const [newCategory, setNewCategory] = useState('')
@@ -28,7 +30,6 @@ export const Category = () => {
   const handleOpen = () => {
     if (selectedCategory) {
       setEditName(selectedCategory.name)
-      console.log(selectedCategory.name)
       setOpen(true)
     }
   }
@@ -40,7 +41,7 @@ export const Category = () => {
 
   const handleSaveEdit = async (newName: string) => {
     if (newName.trim() && selectedId) {
-      await updateItem(selectedId, { name: newName.trim() })
+      await updateCategory({ id: selectedId, name: newName.trim() }).unwrap()
     }
     handleClose()
   }
@@ -48,14 +49,23 @@ export const Category = () => {
   const handleAddItem = async () => {
     const trimmed = newCategory.trim()
     if (trimmed) {
-      await addItem({ name: trimmed })
+      await addCategory({ name: trimmed }).unwrap()
       setNewCategory('')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (selectedId) {
+      await deleteCategory(selectedId).unwrap()
+      setSelectedId('')
     }
   }
 
   const handleChange = (e: SelectChangeEvent<string>) => {
     setSelectedId(e.target.value)
   }
+
+  if (isLoading) return <p>Загрузка категорий...</p>
 
   return (
     <Stack
@@ -87,10 +97,7 @@ export const Category = () => {
           <IconButton
             size="small"
             color="error"
-            onClick={() => {
-              deleteItem(selectedId)
-              setSelectedId('')
-            }}
+            onClick={handleDelete}
             title="Удалить выбранную категорию"
           >
             <Close />
@@ -117,6 +124,8 @@ export const Category = () => {
       <TextField
         label="Новая категория"
         variant="outlined"
+        name="newCategory"
+        id="new-category-input"
         value={newCategory}
         onChange={e => setNewCategory(e.target.value)}
       />
