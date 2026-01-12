@@ -15,6 +15,7 @@ interface CustomModalProps {
   title?: string
   label?: string
   initialValue?: string
+  onChange?: (value: string) => void
 }
 
 export const CustomModal = ({
@@ -42,6 +43,8 @@ export const CustomModal = ({
           autoFocus
           margin="dense"
           label={label}
+          name="Modal"
+          id="Modal"
           type="text"
           fullWidth
           variant="outlined"

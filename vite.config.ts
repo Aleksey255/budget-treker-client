@@ -4,6 +4,15 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+    port: 5173, // порт Vite
+  },
   plugins: [react()],
   resolve: {
     alias: {
