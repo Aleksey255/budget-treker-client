@@ -26,7 +26,9 @@ export type ReportData = {
 
 export const apiSlice = createApi({
   reducerPath: 'api',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
+  baseQuery: fetchBaseQuery({
+    baseUrl: 'https://budget-treker-server.onrender.com/api',
+  }),
   tagTypes: ['Transactions', 'Categories', 'Reports'],
   endpoints: builder => ({
     // Транзакции
