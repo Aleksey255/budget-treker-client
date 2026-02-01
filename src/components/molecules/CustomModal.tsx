@@ -4,60 +4,59 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
+  type DialogProps,
 } from '@mui/material'
-import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 
-interface CustomModalProps {
+interface CustomModalProps extends Omit<DialogProps, 'open' | 'onClose'> {
   open: boolean
-  handleClose: () => void
-  onSave: (value: string) => void
-  title?: string
-  label?: string
-  initialValue?: string
-  onChange?: (value: string) => void
+  onClose: () => void
+  title: string
+  children: ReactNode
+  onConfirm?: () => void
+  confirmText?: string
+  cancelText?: string
+  showCancel?: boolean
+  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  fullWidth?: boolean
 }
 
 export const CustomModal = ({
   open,
-  handleClose,
-  onSave,
-  title = 'Изменить',
-  label = 'Название',
-  initialValue = '',
+  onClose,
+  title,
+  children,
+  onConfirm,
+  confirmText = 'Подтвердить',
+  cancelText = 'Отмена',
+  showCancel = true,
+  maxWidth = 'sm',
+  fullWidth = true,
+  ...dialogProps
 }: CustomModalProps) => {
-  const [value, setValue] = useState(initialValue)
-  useEffect(() => {
-    if (open) {
-      setValue(initialValue)
-    }
-  }, [open, initialValue])
-  const handleSave = () => {
-    onSave(value)
+  const handleConfirm = () => {
+    onConfirm?.()
+    onClose() // Закрываем после подтверждения
   }
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={maxWidth}
+      fullWidth={fullWidth}
+      {...dialogProps}
+    >
       <DialogTitle>{title}</DialogTitle>
-      <DialogContent dividers>
-        <TextField
-          autoFocus
-          margin="dense"
-          label={label}
-          name="Modal"
-          id="Modal"
-          type="text"
-          fullWidth
-          variant="outlined"
-          value={value}
-          onChange={e => setValue(e.target.value)}
-        />
-      </DialogContent>
+
+      <DialogContent>{children}</DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="inherit">
-          Отмена
-        </Button>
-        <Button onClick={handleSave} variant="contained" color="primary">
-          Ок
+        {showCancel && (
+          <Button onClick={onClose} color="secondary">
+            {cancelText}
+          </Button>
+        )}
+        <Button onClick={handleConfirm} color="primary" variant="contained">
+          {confirmText}
         </Button>
       </DialogActions>
     </Dialog>

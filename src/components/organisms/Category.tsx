@@ -12,17 +12,16 @@ import {
   useDeleteCategoryMutation,
   useUpdateCategoryMutation,
 } from '@/store/apiSlice'
-
 export const Category = () => {
   const { data: categories = [], isLoading } = useGetCategoriesQuery()
   const [addCategory] = useAddCategoryMutation()
   const [deleteCategory] = useDeleteCategoryMutation()
   const [updateCategory] = useUpdateCategoryMutation()
+  const [editName, setEditName] = useState('')
 
   const [selectedId, setSelectedId] = useState('')
   const [newCategory, setNewCategory] = useState('')
   const [open, setOpen] = useState(false)
-  const [editName, setEditName] = useState('')
 
   const selectedCategory =
     categories.find(cat => cat._id === selectedId) ?? null
@@ -39,19 +38,19 @@ export const Category = () => {
     setEditName('')
   }
 
-  const handleSaveEdit = async (newName: string) => {
-    if (newName.trim() && selectedId) {
-      await updateCategory({ id: selectedId, name: newName.trim() }).unwrap()
-    }
-    handleClose()
-  }
-
   const handleAddItem = async () => {
     const trimmed = newCategory.trim()
     if (trimmed) {
       await addCategory({ name: trimmed }).unwrap()
       setNewCategory('')
     }
+  }
+
+  const handleSaveEdit = async (newName: string) => {
+    if (newName.trim() && selectedId) {
+      await updateCategory({ id: selectedId, name: newName.trim() }).unwrap()
+    }
+    handleClose()
   }
 
   const handleDelete = async () => {
@@ -113,13 +112,20 @@ export const Category = () => {
       )}
       <CustomModal
         open={open}
-        handleClose={handleClose}
-        onSave={handleSaveEdit}
+        onClose={handleClose}
         title="Изменить категорию"
-        label="Название категории"
-        initialValue={editName}
-        onChange={setEditName}
-      />
+        onConfirm={() => handleSaveEdit(editName)}
+        confirmText="Сохранить"
+      >
+        <TextField
+          label="Название категории"
+          variant="outlined"
+          value={editName}
+          onChange={e => setEditName(e.target.value)}
+          fullWidth
+          autoFocus
+        />
+      </CustomModal>
 
       <TextField
         label="Новая категория"

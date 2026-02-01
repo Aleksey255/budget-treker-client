@@ -1,46 +1,75 @@
 import {
   Button,
-  List,
-  ListItem,
   MenuItem,
   Stack,
   TextField,
+  type SelectChangeEvent,
 } from '@mui/material'
 import { useState } from 'react'
-import { CustomSelect } from '../molecules/CustomSelect'
+import { CustomSelect } from './CustomSelect'
 import {
   useAddTransactionMutation,
   useGetCategoriesQuery,
-  useGetTransactionsQuery,
 } from '@/store/apiSlice'
-import type { NewTransaction } from '@/types/transaction'
+import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
+import { ru } from 'date-fns/locale'
 
-export const Transaction = () => {
-  const { data: transactions = [] } = useGetTransactionsQuery()
+export const AddTransaction = () => {
   const { data: categories = [] } = useGetCategoriesQuery()
   const [addTransaction] = useAddTransactionMutation()
-  const [newTransaction, setNewTransaction] = useState<NewTransaction>({
+  const [newTransaction, setNewTransaction] = useState<{
+    type: 'income' | 'expense'
+    amount: number
+    categoryId: string
+    categoryName: string
+    description?: string
+    date: Date | null
+  }>({
     type: 'expense',
     amount: 0,
     categoryId: '',
+    categoryName: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: new Date(),
   })
 
   const handleSubmit = async () => {
-    if (!newTransaction.amount || !newTransaction.categoryId) {
+    if (
+      !newTransaction.amount ||
+      !newTransaction.categoryId ||
+      !newTransaction.categoryName ||
+      !newTransaction.date
+    ) {
       alert('Заполните сумму и категорию')
       return
     }
 
-    await addTransaction(newTransaction).unwrap() // ← автоматом: refetch reports + transactions
+    const transactionToSend = {
+      ...newTransaction,
+      date: newTransaction.date.toISOString().split('T')[0], // ← строка для API
+    }
 
+    await addTransaction(transactionToSend).unwrap()
+
+    // Сброс: дата как Date
     setNewTransaction({
       type: 'expense',
       amount: 0,
       categoryId: '',
+      categoryName: '',
       description: '',
-      date: new Date().toISOString().split('T')[0],
+      date: new Date(),
+    })
+  }
+  const selectCategory = (e: SelectChangeEvent<string>) => {
+    const selectedId = e.target.value
+    const category = categories.find(cat => cat._id === selectedId)
+
+    setNewTransaction({
+      ...newTransaction,
+      categoryId: selectedId,
+      categoryName: category ? category.name : '', // ✅ Правильное имя
     })
   }
 
@@ -54,23 +83,12 @@ export const Transaction = () => {
         p: 2,
       }}
     >
-      <List sx={{ maxHeight: 300, overflow: 'auto', width: '100%' }}>
-        {transactions.map(item => (
-          <ListItem key={item._id}>
-            {item.type === 'income' ? '📥 Доход' : '📤 Расход'} | {item.amount}{' '}
-            ₽ | {item.description || 'Без описания'} |{' '}
-            {new Date(item.date).toLocaleDateString('ru-RU')}
-          </ListItem>
-        ))}
-      </List>
       <CustomSelect
         label="Категория"
         width={200}
         name="categoryId"
         value={newTransaction.categoryId}
-        onChange={e =>
-          setNewTransaction({ ...newTransaction, categoryId: e.target.value })
-        }
+        onChange={selectCategory}
       >
         <MenuItem value="">— Выберите —</MenuItem>
         {categories.map(cat => (
@@ -118,18 +136,21 @@ export const Transaction = () => {
         }
         fullWidth
       />
-      <TextField
-        label="Дата"
-        variant="outlined"
-        name="date"
-        id="date"
-        type="date"
-        value={newTransaction.date}
-        onChange={e =>
-          setNewTransaction({ ...newTransaction, date: e.target.value })
-        }
-        fullWidth
-      />
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+        <DesktopDatePicker
+          sx={{ mr: 2 }}
+          label="Дата"
+          value={newTransaction.date}
+          onChange={newValue =>
+            setNewTransaction({ ...newTransaction, date: newValue })
+          }
+          slotProps={{
+            textField: { fullWidth: false },
+          }}
+          format="dd.MM.yyyy"
+          disableFuture
+        />
+      </LocalizationProvider>
 
       <Button
         variant="contained"
