@@ -23,11 +23,12 @@ export type ReportData = {
   income: Array<{ category: string; total: number }>
   expenses: Array<{ category: string; total: number }>
 }
-// baseUrl: 'https://budget-treker-server.onrender.com/api'
+const baseUrl = import.meta.env.VITE_API_BASE_URL
+
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: '/api',
+    baseUrl: baseUrl,
   }),
   tagTypes: ['Transactions', 'Categories', 'Reports'],
   endpoints: builder => ({
