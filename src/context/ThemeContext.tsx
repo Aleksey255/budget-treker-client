@@ -2,7 +2,7 @@ import { createContext, useState, useContext, useEffect } from 'react'
 import { lightTheme } from '../styles/theme/lightTheme'
 import { darkTheme } from '../styles/theme/darkTheme'
 
-type ThemeContextType = {
+interface ThemeContextType {
   theme: typeof darkTheme
   toggleTheme: () => void
 }

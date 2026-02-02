@@ -29,7 +29,7 @@ export const TransactionModal = () => {
         confirmText="Закрыть"
         showCancel={false} // Не нужна "отмена", просто закрыть
       >
-        <AddTransaction />
+        <AddTransaction onClose={() => setOpen(false)} />
       </CustomModal>
     </>
   )

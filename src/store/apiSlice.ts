@@ -23,11 +23,11 @@ export type ReportData = {
   income: Array<{ category: string; total: number }>
   expenses: Array<{ category: string; total: number }>
 }
-
+// baseUrl: 'https://budget-treker-server.onrender.com/api'
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: 'https://budget-treker-server.onrender.com/api',
+    baseUrl: '/api',
   }),
   tagTypes: ['Transactions', 'Categories', 'Reports'],
   endpoints: builder => ({

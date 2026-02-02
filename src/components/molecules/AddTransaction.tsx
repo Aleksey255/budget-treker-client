@@ -15,19 +15,23 @@ import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { ru } from 'date-fns/locale'
 
-export const AddTransaction = () => {
+interface AddTransactionProps {
+  onClose: () => void
+}
+
+export const AddTransaction = ({ onClose }: AddTransactionProps) => {
   const { data: categories = [] } = useGetCategoriesQuery()
   const [addTransaction] = useAddTransactionMutation()
   const [newTransaction, setNewTransaction] = useState<{
     type: 'income' | 'expense'
-    amount: number
+    amount: number | ''
     categoryId: string
     categoryName: string
     description?: string
     date: Date | null
   }>({
     type: 'expense',
-    amount: 0,
+    amount: '',
     categoryId: '',
     categoryName: '',
     description: '',
@@ -47,6 +51,7 @@ export const AddTransaction = () => {
 
     const transactionToSend = {
       ...newTransaction,
+      amount: Number(newTransaction.amount), // гарантируем number
       date: newTransaction.date.toISOString().split('T')[0], // ← строка для API
     }
 
@@ -55,12 +60,13 @@ export const AddTransaction = () => {
     // Сброс: дата как Date
     setNewTransaction({
       type: 'expense',
-      amount: 0,
+      amount: '',
       categoryId: '',
       categoryName: '',
       description: '',
       date: new Date(),
     })
+    onClose()
   }
   const selectCategory = (e: SelectChangeEvent<string>) => {
     const selectedId = e.target.value
@@ -75,7 +81,7 @@ export const AddTransaction = () => {
 
   return (
     <Stack
-      direction="row"
+      direction="column"
       spacing={2}
       sx={{
         alignItems: 'center',
@@ -84,8 +90,9 @@ export const AddTransaction = () => {
       }}
     >
       <CustomSelect
+        // width='100%'
+        sx={{ width: { xs: '100%', sm: 246 } }}
         label="Категория"
-        width={200}
         name="categoryId"
         value={newTransaction.categoryId}
         onChange={selectCategory}
@@ -98,8 +105,9 @@ export const AddTransaction = () => {
         ))}
       </CustomSelect>
       <CustomSelect
+        // width='100%'
+        sx={{ width: { xs: '100%', sm: 246 } }}
         label="Тип"
-        width={200}
         name="type"
         value={newTransaction.type}
         onChange={e =>
@@ -113,19 +121,36 @@ export const AddTransaction = () => {
         <MenuItem value="expense">Расход</MenuItem>
       </CustomSelect>
       <TextField
+        sx={{ width: { xs: '100%', sm: 246 } }}
         label="Сумма"
         variant="outlined"
         type="number"
         name="amount"
         id="amount"
         value={newTransaction.amount}
-        onChange={e =>
-          setNewTransaction({ ...newTransaction, amount: +e.target.value || 0 })
-        }
+        onChange={e => {
+          const value = e.target.value
+          setNewTransaction({
+            ...newTransaction,
+            amount: value === '' ? '' : Number(value),
+          })
+        }}
+        onKeyDown={e => {
+          if (
+            e.key === '-' ||
+            e.key === 'e' ||
+            e.key === '+' ||
+            e.key === '.' ||
+            e.key === ','
+          ) {
+            e.preventDefault()
+          }
+        }}
         fullWidth
       />
 
       <TextField
+        sx={{ width: { xs: '100%', sm: 246 } }}
         label="Описание"
         variant="outlined"
         name="description"
@@ -138,14 +163,17 @@ export const AddTransaction = () => {
       />
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
         <DesktopDatePicker
-          sx={{ mr: 2 }}
+          // sx={{ mr: 2 }}
           label="Дата"
           value={newTransaction.date}
           onChange={newValue =>
             setNewTransaction({ ...newTransaction, date: newValue })
           }
           slotProps={{
-            textField: { fullWidth: false },
+            textField: {
+              sx: { width: { xs: '100%', sm: 246 } },
+              fullWidth: false,
+            },
           }}
           format="dd.MM.yyyy"
           disableFuture

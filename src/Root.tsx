@@ -3,6 +3,7 @@ import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
 import { useTheme } from './context/ThemeContext'
 import { store } from './store/store'
+import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 
 export const Root = () => {
@@ -11,8 +12,10 @@ export const Root = () => {
   return (
     <Provider store={store}>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <App />
+        <BrowserRouter>
+          <CssBaseline />
+          <App />
+        </BrowserRouter>
       </ThemeProvider>
     </Provider>
   )

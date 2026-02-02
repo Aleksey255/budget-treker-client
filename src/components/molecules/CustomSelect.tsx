@@ -4,7 +4,8 @@ import { useId } from 'react'
 
 interface CustomSelectProps extends Omit<SelectProps<string>, 'children'> {
   label: string
-  width?: number
+  sx: object
+  // width?: number
   labelId?: string
   selectId?: string
   children: React.ReactNode
@@ -13,7 +14,8 @@ interface CustomSelectProps extends Omit<SelectProps<string>, 'children'> {
 export const CustomSelect = ({
   children,
   label,
-  width,
+  sx,
+  // width,
   labelId: externalLabelId,
   selectId: externalSelectId,
   ...props
@@ -24,7 +26,7 @@ export const CustomSelect = ({
   const finalSelectId = externalSelectId || internalSelectId
 
   return (
-    <FormControl sx={{ width }}>
+    <FormControl sx={sx}>
       <InputLabel id={finalLabelId}>{label}</InputLabel>
       <Select
         defaultValue=""
