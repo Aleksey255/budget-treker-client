@@ -76,7 +76,8 @@ export const Category = () => {
     >
       <CustomSelect
         label="Выберите категорию"
-        width={200}
+        // width='100%'
+        sx={{ width: { xs: '100%', sm: 246 } }}
         value={selectedId}
         onChange={handleChange}
       >
