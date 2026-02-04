@@ -40,18 +40,13 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
   return (
     <Drawer anchor="left" open={open} onClose={onClose}>
       <Toolbar />
-      <Box sx={{ width: 250 }} role="presentation" onClick={onClose}>
+      <Box sx={{ width: 250 }} role="presentation">
         <List>
           {/* Кнопка "Назад" — только на странице категорий */}
           {isOnCategories && (
             <ListItem disablePadding>
-              <ListItemButton component="div">
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGoBack}
-                >
+              <ListItemButton component="div" onClick={handleGoBack}>
+                <Button fullWidth variant="contained" color="primary">
                   Назад
                 </Button>
               </ListItemButton>
@@ -60,13 +55,8 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
 
           {/* Переключение темы — всегда */}
           <ListItem disablePadding>
-            <ListItemButton component="div">
-              <Button
-                fullWidth
-                variant="contained"
-                color="primary"
-                onClick={handleToggleTheme}
-              >
+            <ListItemButton component="div" onClick={handleToggleTheme}>
+              <Button fullWidth variant="contained" color="primary">
                 Переключить тему
               </Button>
             </ListItemButton>
@@ -75,13 +65,8 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
           {/* Переход в категории — если не на /categories */}
           {!isOnCategories && (
             <ListItem disablePadding>
-              <ListItemButton component="div">
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGoToCategories}
-                >
+              <ListItemButton component="div" onClick={handleGoToCategories}>
+                <Button fullWidth variant="contained" color="primary">
                   Управление категориями
                 </Button>
               </ListItemButton>

@@ -5,7 +5,6 @@ import { useId } from 'react'
 interface CustomSelectProps extends Omit<SelectProps<string>, 'children'> {
   label: string
   sx: object
-  // width?: number | string
   labelId?: string
   selectId?: string
   children: React.ReactNode
@@ -15,7 +14,6 @@ export const CustomSelect = ({
   children,
   label,
   sx,
-  // width,
   labelId: externalLabelId,
   selectId: externalSelectId,
   ...props

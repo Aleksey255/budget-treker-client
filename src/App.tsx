@@ -28,7 +28,6 @@ function App() {
 
   return (
     <>
-      {/* <Header /> */}
       {/* Аппбар с бургером */}
       <AppBar
         position="static"
