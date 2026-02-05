@@ -12,6 +12,11 @@ export const TransactionList = () => {
   const { data: transactions = [] } = useGetTransactionsQuery()
   const [deleteTransaction] = useDeleteTransactionMutation()
 
+  // Сортируем: от самых старых к самым новым (по дате)
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime()
+  })
+
   const handleDelete = async (id: string) => {
     await deleteTransaction(id).unwrap()
   }
@@ -36,7 +41,7 @@ export const TransactionList = () => {
           alignItems: 'flex-start', // ← ключевое: выравниваем слева
         }}
       >
-        {transactions.map(item => {
+        {sortedTransactions.map(item => {
           return (
             <Paper
               onMouseEnter={() => setIsHovered(item._id)}

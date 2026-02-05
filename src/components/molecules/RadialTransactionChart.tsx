@@ -1,4 +1,4 @@
-import { PieChart, Pie, Legend, ResponsiveContainer, Tooltip } from 'recharts'
+import { PieChart, Pie, ResponsiveContainer, Tooltip } from 'recharts'
 import { Box, Typography } from '@mui/material'
 
 import type { CategoryData } from '@/types/categoryData'
@@ -61,29 +61,26 @@ export const RadialTransactionChart = ({
       <Typography variant="h6" gutterBottom>
         {type === 'income' ? 'Доходы' : 'Расходы'} по категориям
       </Typography>
-
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            outerRadius={100}
-            innerRadius={60}
-            labelLine={false}
-            dataKey="value"
-            nameKey="name"
-          ></Pie>
-          <Legend
-            iconType="circle"
-            layout="horizontal"
-            verticalAlign="bottom"
-            align="center"
-            content={<CustomLegend payload={data} />}
-          />
-          <Tooltip content={<CustomTooltip />} />
-        </PieChart>
-      </ResponsiveContainer>
+      <Box sx={{ height: 200, position: 'relative', width: '100%' }}>
+        <ResponsiveContainer width="100%" height={200} minWidth="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="60%"
+              outerRadius={80}
+              innerRadius={50}
+              labelLine={false}
+              dataKey="value"
+              nameKey="name"
+            ></Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </Box>
+      <Box>
+        <CustomLegend payload={data} />
+      </Box>
     </Box>
   )
 }
