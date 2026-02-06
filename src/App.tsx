@@ -1,7 +1,7 @@
 import {
   AppBar,
-  Avatar,
-  CardHeader,
+  // Avatar,
+  // CardHeader,
   Container,
   IconButton,
   Toolbar,
@@ -11,7 +11,6 @@ import MenuIcon from '@mui/icons-material/Menu'
 import { useTheme } from './context/ThemeContext'
 import { TransactionModal } from './components/organisms/TransactionModal '
 import { Balance } from './components/organisms/Balance'
-// import { Header } from './components/organisms/Header'
 import { TransactionList } from './components/organisms/TransactionList'
 import { CategoryPage } from './pages/CategoryPage'
 import { Route, Routes } from 'react-router-dom'
@@ -30,22 +29,23 @@ function App() {
     <>
       {/* Аппбар с бургером */}
       <AppBar
-        position="static"
+        position="fixed"
         color="default"
         style={{
           // marginTop: '50px',
           backgroundColor: theme === darkTheme ? '#121212' : '#fff',
+          zIndex: 5,
         }}
       >
         <Toolbar>
-          <CardHeader
+          {/* <CardHeader
             avatar={
               <Avatar aria-label="Пользователь" src="../../../public/user.png">
                 AB
               </Avatar>
             }
             title="С возвращением юзер"
-          />
+          /> */}
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Контроль бюджета
           </Typography>
@@ -66,7 +66,7 @@ function App() {
       {/* Основной контент */}
       <Container
         maxWidth="sm"
-        style={{ marginTop: '20px', marginBottom: '80px' }}
+        style={{ marginTop: '80px', marginBottom: '80px' }}
       >
         <Routes>
           <Route

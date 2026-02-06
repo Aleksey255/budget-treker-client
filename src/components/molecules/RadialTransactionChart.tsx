@@ -69,7 +69,6 @@ export const RadialTransactionChart = ({
               cx="50%"
               cy="60%"
               outerRadius={80}
-              innerRadius={50}
               labelLine={false}
               dataKey="value"
               nameKey="name"

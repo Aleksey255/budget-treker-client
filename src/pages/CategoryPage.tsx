@@ -1,5 +1,5 @@
-import { Category } from '@/components/organisms/Category'
+import { CategoryList } from '@/components/organisms/CategoryList'
 
 export const CategoryPage = () => {
-  return <Category />
+  return <CategoryList />
 }

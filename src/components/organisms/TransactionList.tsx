@@ -9,7 +9,7 @@ import { RadialTransactionChart } from '../molecules/RadialTransactionChart'
 
 export const TransactionList = () => {
   const [isHovered, setIsHovered] = useState<string | null>(null)
-  const { data: transactions = [] } = useGetTransactionsQuery()
+  const { data: transactions = [], isLoading } = useGetTransactionsQuery()
   const [deleteTransaction] = useDeleteTransactionMutation()
 
   // Сортируем: от самых старых к самым новым (по дате)
@@ -20,6 +20,9 @@ export const TransactionList = () => {
   const handleDelete = async (id: string) => {
     await deleteTransaction(id).unwrap()
   }
+
+  if (isLoading)
+    return <Typography component="p">Загрузка транзакций...</Typography>
 
   return (
     <Box
