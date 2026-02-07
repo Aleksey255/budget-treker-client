@@ -13,13 +13,21 @@ import { TransactionModal } from './components/organisms/TransactionModal '
 import { Balance } from './components/organisms/Balance'
 import { TransactionList } from './components/organisms/TransactionList'
 import { CategoryPage } from './pages/CategoryPage'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useState } from 'react'
 import { Sidebar } from './components/molecules/Sidebar'
 import { darkTheme } from './styles/theme/darkTheme'
+import { AuthForm } from './components/molecules/AuthForm'
+
+const useAuth = () => {
+  const token = localStorage.getItem('token')
+  return !!token
+}
+
 function App() {
   const { theme } = useTheme() // для цвета аппбара
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const isAuthenticated = useAuth() // Проверяем, есть ли токен
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev)
@@ -28,17 +36,18 @@ function App() {
   return (
     <>
       {/* Аппбар с бургером */}
-      <AppBar
-        position="fixed"
-        color="default"
-        style={{
-          // marginTop: '50px',
-          backgroundColor: theme === darkTheme ? '#121212' : '#fff',
-          zIndex: 5,
-        }}
-      >
-        <Toolbar>
-          {/* <CardHeader
+      {isAuthenticated && (
+        <AppBar
+          position="fixed"
+          color="default"
+          style={{
+            // marginTop: '50px',
+            backgroundColor: theme === darkTheme ? '#121212' : '#fff',
+            zIndex: 5,
+          }}
+        >
+          <Toolbar>
+            {/* <CardHeader
             avatar={
               <Avatar aria-label="Пользователь" src="../../../public/user.png">
                 AB
@@ -46,40 +55,58 @@ function App() {
             }
             title="С возвращением юзер"
           /> */}
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Контроль бюджета
-          </Typography>
-          <IconButton
-            edge="end"
-            color="inherit"
-            aria-label="menu"
-            onClick={toggleSidebar}
-          >
-            <MenuIcon />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Контроль бюджета
+            </Typography>
+            <IconButton
+              edge="end"
+              color="inherit"
+              aria-label="menu"
+              onClick={toggleSidebar}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+      )}
 
       {/* Боковая панель */}
-      <Sidebar open={sidebarOpen} onClose={toggleSidebar} />
-
+      {isAuthenticated && (
+        <Sidebar open={sidebarOpen} onClose={toggleSidebar} />
+      )}
       {/* Основной контент */}
       <Container
         maxWidth="sm"
         style={{ marginTop: '80px', marginBottom: '80px' }}
       >
         <Routes>
-          <Route
-            path="/"
-            element={
-              <>
-                <TransactionList />
-                <TransactionModal />
-                <Balance />
-              </>
-            }
-          />
-          <Route path="/categories" element={<CategoryPage />} />
+          <Route path="/" element={<AuthForm />} />
+          <Route path="/login" element={<AuthForm />} />
+          <Route path="/register" element={<AuthForm />} />
+          <Route path="/forgot-password" element={<AuthForm />} />
+          <Route path="/reset-password" element={<AuthForm />} />
+
+          {/* Защищённые маршруты */}
+          {isAuthenticated ? (
+            <>
+              <Route
+                path="/dashboard"
+                element={
+                  <>
+                    <TransactionList />
+                    <TransactionModal />
+                    <Balance />
+                  </>
+                }
+              />
+              <Route path="/categories" element={<CategoryPage />} />
+              {/* Редирект с корня на дашборд */}
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+            </>
+          ) : (
+            // Если не авторизован — редирект на /login
+            <Route path="*" element={<Navigate to="/login" />} />
+          )}
         </Routes>
       </Container>
     </>

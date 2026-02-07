@@ -1,4 +1,5 @@
 import { useTheme } from '@/context/ThemeContext'
+import { useLogoutMutation } from '@/store/apiSlice'
 import {
   Box,
   Button,
@@ -20,6 +21,8 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
   const location = useLocation()
   const { toggleTheme } = useTheme()
 
+  const [logout] = useLogoutMutation()
+
   const isOnCategories = location.pathname === '/categories'
 
   const handleGoBack = () => {
@@ -34,6 +37,12 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
 
   const handleGoToCategories = () => {
     navigate('/categories')
+    onClose()
+  }
+
+  const handleLogout = async () => {
+    await logout() // Очищает localStorage и инвалидирует теги
+    navigate('/login', { replace: true })
     onClose()
   }
 
@@ -72,6 +81,15 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
               </ListItemButton>
             </ListItem>
           )}
+
+          {/* Кнопка выхода */}
+          <ListItem disablePadding>
+            <ListItemButton component="div" onClick={handleLogout}>
+              <Button fullWidth variant="contained" color="error">
+                Выйти
+              </Button>
+            </ListItemButton>
+          </ListItem>
         </List>
       </Box>
     </Drawer>
