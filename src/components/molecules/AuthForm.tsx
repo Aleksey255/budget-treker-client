@@ -1,5 +1,6 @@
 import {
   useForgotPasswordMutation,
+  useGetMeQuery,
   useLoginMutation,
   useRegisterMutation,
   useResetPasswordMutation,
@@ -30,10 +31,19 @@ type ErrorResponse = {
 }
 
 export const AuthForm = () => {
-  // Режимы: login | register | forgotPassword | resetPassword (по токену)
+  const { data: user } = useGetMeQuery(undefined, {
+    skip: !localStorage.getItem('token'),
+  })
 
   const location = useLocation()
   const navigate = useNavigate()
+
+  // Если токен есть, и getMe загрузился — редиректим
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
 
   // Проверяем, есть ли токен в URL (для сброса пароля)
   const searchParams = new URLSearchParams(location.search)
@@ -83,7 +93,7 @@ export const AuthForm = () => {
     } else if (path === '/forgot-password') {
       setView('forgotPassword')
     } else {
-      setView('login') // /login или /
+      setView('login')
     }
   }, [location.pathname])
 
@@ -102,10 +112,10 @@ export const AuthForm = () => {
         }
         await resetPassword({ token, newPassword }).unwrap()
         alert('Пароль успешно изменён. Войдите с новым паролем.')
+
         navigate('/login', { replace: true })
       } else if (view === 'login') {
         await login({ email, password }).unwrap()
-        navigate('/dashboard', { replace: true })
       } else if (view === 'register') {
         if (!name) return setError('Имя обязательно')
         await register({ name, email, password }).unwrap()

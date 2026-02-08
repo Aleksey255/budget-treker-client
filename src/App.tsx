@@ -14,14 +14,29 @@ import { Balance } from './components/organisms/Balance'
 import { TransactionList } from './components/organisms/TransactionList'
 import { CategoryPage } from './pages/CategoryPage'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sidebar } from './components/molecules/Sidebar'
 import { darkTheme } from './styles/theme/darkTheme'
 import { AuthForm } from './components/molecules/AuthForm'
 
+// const useAuth = () => {
+//   const token = localStorage.getItem('token')
+//   return !!token
+// }
 const useAuth = () => {
-  const token = localStorage.getItem('token')
-  return !!token
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    !!localStorage.getItem('token')
+  )
+
+  useEffect(() => {
+    const handler = () => {
+      setIsAuthenticated(!!localStorage.getItem('token'))
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
+
+  return isAuthenticated
 }
 
 function App() {

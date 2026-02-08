@@ -160,29 +160,22 @@ export const apiSlice = createApi({
       }),
       async onQueryStarted(_, { queryFulfilled, dispatch }) {
         try {
-          // 1. Регистрация прошла успешно
+          // Регистрация прошла успешно
           const registrationResult = await queryFulfilled
 
-          // 2. Автоматически вызываем login с теми же email/password
+          // Очищаем кэш перед входом нового пользователя
+          dispatch(apiSlice.util.resetApiState())
+
+          //  Автоматически вызываем login с теми же email/password
           const loginMutation = apiSlice.endpoints.login.initiate({
             email: registrationResult.data.user.email,
             password: _.password, // ⚠️ Пароль приходит из аргумента мутации
           })
 
-          // 3. Диспатчим login
-          const loginResult = await dispatch(loginMutation).unwrap()
-
-          // 4. Токен уже сохранится внутри `login.onQueryStarted`
-          console.log(
-            'Автоматический вход после регистрации успешен:',
-            loginResult
-          )
+          //  Диспатчим login
+          dispatch(loginMutation)
         } catch (error) {
-          console.error(
-            'Ошибка при автоматическом входе после регистрации:',
-            error
-          )
-          // Можно показать уведомление
+          console.error('Ошибка при регистрации или входе:', error)
           alert('Регистрация прошла, но вход не удался. Войдите вручную.')
         }
       },
@@ -198,18 +191,28 @@ export const apiSlice = createApi({
       async onQueryStarted(_, { queryFulfilled, dispatch }) {
         try {
           const result = await queryFulfilled
+
+          // Очищаем старый кэш (например, от предыдущего пользователя)
+          dispatch(apiSlice.util.resetApiState())
+
           // Сохраняем токен
           localStorage.setItem('token', result.data.token)
           // Можно отправить action в Redux, чтобы установить пользователя
-          dispatch(
-            apiSlice.util.updateQueryData(
-              'getMe',
-              undefined,
-              () => result.data.user
+          try {
+            dispatch(
+              apiSlice.util.updateQueryData(
+                'getMe',
+                undefined,
+                () => result.data.user
+              )
             )
-          )
+          } catch (updateError) {
+            console.warn('Не удалось обновить данные getMe:', updateError)
+            // Не критично — можно игнорировать
+          }
         } catch (error) {
           console.error(error)
+          localStorage.removeItem('token')
           alert('Ошибка при входе')
         }
       },
@@ -220,7 +223,16 @@ export const apiSlice = createApi({
         localStorage.removeItem('token')
         return { data: undefined }
       },
-      invalidatesTags: ['User'],
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled
+          // Полная очистка кэша приватных данных
+          dispatch(apiSlice.util.resetApiState())
+        } catch (error) {
+          console.error(error)
+          alert('Ошибка при выходе')
+        }
+      },
     }),
     forgotPassword: builder.mutation<void, { email: string }>({
       query: body => ({
