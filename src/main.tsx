@@ -1,4 +1,4 @@
-import { StrictMode, Suspense } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ThemeProviderWrapper } from './context/ThemeContext'
 import { Root } from './Root'
@@ -6,9 +6,7 @@ import { Root } from './Root'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProviderWrapper>
-      <Suspense fallback="Загрузка...">
-        <Root />
-      </Suspense>
+      <Root />
     </ThemeProviderWrapper>
   </StrictMode>
 )

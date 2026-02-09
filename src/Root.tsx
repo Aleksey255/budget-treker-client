@@ -12,7 +12,9 @@ export const Root = () => {
   return (
     <Provider store={store}>
       <ThemeProvider theme={theme}>
-        <BrowserRouter>
+        <BrowserRouter
+          key={typeof window === 'undefined' ? 'server' : 'client'}
+        >
           <CssBaseline />
           <App />
         </BrowserRouter>

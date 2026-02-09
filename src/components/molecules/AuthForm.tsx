@@ -41,13 +41,17 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
 
   const location = useLocation()
   const navigate = useNavigate()
-
+  const [isClient, setIsClient] = useState(false)
   // Если токен есть, и getMe загрузился — редиректим
   useEffect(() => {
-    if (user) {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (isClient && user) {
       navigate('/dashboard', { replace: true })
     }
-  }, [user, navigate])
+  }, [isClient, user, navigate])
 
   // Проверяем, есть ли токен в URL (для сброса пароля)
   const searchParams = new URLSearchParams(location.search)

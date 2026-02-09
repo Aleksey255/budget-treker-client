@@ -17,11 +17,11 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Sidebar } from './components/molecules/Sidebar'
 import { darkTheme } from './styles/theme/darkTheme'
-import { AuthForm } from './components/molecules/AuthForm'
 import { useGetMeQuery } from './store/apiSlice'
 import { Login } from './components/organisms/Login'
 import { Register } from './components/organisms/Register'
 import { ForgotPassword } from './components/organisms/ForgotPassword'
+import { ResetPassword } from './components/organisms/ResetPassword'
 
 // const useAuth = () => {
 //   const token = localStorage.getItem('token')
@@ -137,7 +137,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<AuthForm />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Защищённые маршруты */}
           {isAuthenticated ? (
