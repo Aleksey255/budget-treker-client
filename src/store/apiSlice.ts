@@ -143,12 +143,7 @@ export const apiSlice = createApi({
     }),
     // Получение текущего пользователя
     getMe: builder.query<User, void>({
-      query: () => ({
-        url: '/auth/me',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      }),
+      query: () => '/auth/me',
       providesTags: ['User'],
       // Автоматически повторяет запрос при монтировании
     }),
