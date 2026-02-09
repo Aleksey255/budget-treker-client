@@ -19,6 +19,9 @@ import { Sidebar } from './components/molecules/Sidebar'
 import { darkTheme } from './styles/theme/darkTheme'
 import { AuthForm } from './components/molecules/AuthForm'
 import { useGetMeQuery } from './store/apiSlice'
+import { Login } from './components/organisms/Login'
+import { Register } from './components/organisms/Register'
+import { ForgotPassword } from './components/organisms/ForgotPassword'
 
 // const useAuth = () => {
 //   const token = localStorage.getItem('token')
@@ -131,9 +134,9 @@ function App() {
       >
         <Routes>
           {/* <Route path="/" element={<AuthForm />} /> */}
-          <Route path="/login" element={<AuthForm />} />
-          <Route path="/register" element={<AuthForm />} />
-          <Route path="/forgot-password" element={<AuthForm />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<AuthForm />} />
 
           {/* Защищённые маршруты */}

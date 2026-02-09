@@ -22,6 +22,10 @@ import {
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
+type AuthFormProps = {
+  initialView?: 'login' | 'register' | 'forgotPassword'
+}
+
 // 🔍 Тип для ответа ошибки с сервера
 type ErrorResponse = {
   data?: {
@@ -30,7 +34,7 @@ type ErrorResponse = {
   status?: number
 }
 
-export const AuthForm = () => {
+export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
   const { data: user } = useGetMeQuery(undefined, {
     skip: !localStorage.getItem('token'),
   })
@@ -51,7 +55,7 @@ export const AuthForm = () => {
   const isResetMode = Boolean(token)
 
   const [view, setView] = useState<'login' | 'register' | 'forgotPassword'>(
-    'login'
+    initialView
   )
 
   // Форма
@@ -85,17 +89,17 @@ export const AuthForm = () => {
     setConfirmPassword('')
   }, [view, isResetMode])
 
-  useEffect(() => {
-    const path = location.pathname
+  // useEffect(() => {
+  //   const path = location.pathname
 
-    if (path === '/register') {
-      setView('register')
-    } else if (path === '/forgot-password') {
-      setView('forgotPassword')
-    } else {
-      setView('login')
-    }
-  }, [location.pathname])
+  //   if (path === '/register') {
+  //     setView('register')
+  //   } else if (path === '/forgot-password') {
+  //     setView('forgotPassword')
+  //   } else {
+  //     setView('login')
+  //   }
+  // }, [location.pathname])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
