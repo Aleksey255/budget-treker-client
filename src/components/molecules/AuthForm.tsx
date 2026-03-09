@@ -49,7 +49,7 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
 
   useEffect(() => {
     if (isClient && user) {
-      navigate('/dashboard', { replace: true })
+      navigate('/', { replace: true })
     }
   }, [isClient, user, navigate])
 
@@ -127,7 +127,7 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
       } else if (view === 'register') {
         if (!name) return setError('Имя обязательно')
         await register({ name, email, password }).unwrap()
-        navigate('/dashboard', { replace: true })
+        navigate('/', { replace: true })
       } else if (view === 'forgotPassword') {
         if (!email) return setError('Email обязателен')
         await forgotPassword({ email }).unwrap()
