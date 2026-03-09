@@ -143,7 +143,7 @@ function App() {
           {isAuthenticated ? (
             <>
               <Route
-                path="/dashboard"
+                path="/"
                 element={
                   <>
                     <TransactionList />
@@ -154,7 +154,7 @@ function App() {
               />
               <Route path="/categories" element={<CategoryPage />} />
               {/* Редирект с корня на дашборд */}
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+              {/* <Route path="/" element={<Navigate to="/dashboard" />} /> */}
             </>
           ) : (
             // Если не авторизован — редирект на /login
