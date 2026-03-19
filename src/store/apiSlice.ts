@@ -63,6 +63,8 @@ export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithAuth,
   tagTypes: ['Transactions', 'Categories', 'Reports', 'User'],
+  refetchOnFocus: false,
+  refetchOnReconnect: false,
   endpoints: builder => ({
     // Транзакции
     getTransactions: builder.query<Transaction[], void>({
@@ -187,28 +189,33 @@ export const apiSlice = createApi({
         try {
           const result = await queryFulfilled
 
-          // Очищаем старый кэш (например, от предыдущего пользователя)
-          dispatch(apiSlice.util.resetApiState())
-
           // Сохраняем токен
           localStorage.setItem('token', result.data.token)
-          // Можно отправить action в Redux, чтобы установить пользователя
-          try {
-            dispatch(
-              apiSlice.util.updateQueryData(
-                'getMe',
-                undefined,
-                () => result.data.user
-              )
+
+          // ✅ Принудительно запускаем getMe и ждём ответа
+          const getMePromise = dispatch(
+            apiSlice.endpoints.getMe.initiate(undefined, {
+              forceRefetch: true,
+              subscribe: false,
+            })
+          )
+
+          // try {
+          dispatch(
+            apiSlice.util.updateQueryData(
+              'getMe',
+              undefined,
+              () => result.data.user
             )
-          } catch (updateError) {
-            console.warn('Не удалось обновить данные getMe:', updateError)
-            // Не критично — можно игнорировать
-          }
+          )
+
+          // Ждём ответа, чтобы поймать ошибки
+          await getMePromise.unwrap()
         } catch (error) {
           console.error(error)
           localStorage.removeItem('token')
           alert('Ошибка при входе')
+          throw error
         }
       },
     }),

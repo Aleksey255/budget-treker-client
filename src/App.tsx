@@ -9,10 +9,11 @@ import {
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import { useTheme } from './context/ThemeContext'
-import { TransactionModal } from './components/organisms/TransactionModal'
-import { Balance } from './components/organisms/Balance'
-import { TransactionList } from './components/organisms/TransactionList'
+// import { TransactionModal } from './components/organisms/TransactionModal'
+// import { Balance } from './components/organisms/Balance'
+// import { TransactionList } from './components/organisms/TransactionList'
 import { CategoryPage } from './pages/CategoryPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Sidebar } from './components/molecules/Sidebar'
@@ -22,60 +23,35 @@ import { Login } from './components/organisms/Login'
 import { Register } from './components/organisms/Register'
 import { ForgotPassword } from './components/organisms/ForgotPassword'
 import { ResetPassword } from './components/organisms/ResetPassword'
-
-// const useAuth = () => {
-//   const token = localStorage.getItem('token')
-//   return !!token
-// }
-// const useAuth = () => {
-
-//   useEffect(() => {
-//     const handler = () => {
-//       setIsAuthenticated(!!localStorage.getItem('token'))
-//     }
-//     window.addEventListener('storage', handler)
-//     return () => window.removeEventListener('storage', handler)
-//   }, [])
-
-//   return isAuthenticated
-// }
+import { PublicRoute } from './components/atoms/PublicRoute'
+import { ProtectedRoute } from './components/atoms/ProtectedRoute'
 
 function App() {
   const { theme } = useTheme() // для цвета аппбара
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    !!localStorage.getItem('token')
-  )
-  // const isAuthenticated = useAuth() // Проверяем, есть ли токен
   const navigate = useNavigate()
 
-  const {
-    data: userData,
-    // isLoading,
-    isError,
-    isSuccess,
-  } = useGetMeQuery(undefined, {
-    skip: !localStorage.getItem('token'),
+  const token = localStorage.getItem('token')
+
+  const { data: userData, isError } = useGetMeQuery(undefined, {
+    skip: !token,
   })
 
+  // ✅ Актуальный флаг авторизации
+  const isAuthenticated = !!token && !!userData && !isError
+
   useEffect(() => {
-    if (!isSuccess && userData) {
-      // Если данные пользователя загружены, значит пользователь авторизован
-      setIsAuthenticated(true)
-    } else if (isError) {
+    if (token && isError) {
       localStorage.removeItem('token')
-      setIsAuthenticated(false)
-      navigate('/login')
     }
-  }, [isSuccess, isError, userData, navigate])
+  }, [token, isError])
 
   // Слушаем изменения localStorage (например, выход в другом окне)
   useEffect(() => {
     const handleStorage = () => {
-      const token = localStorage.getItem('token')
-      if (!token && isAuthenticated) {
-        setIsAuthenticated(false)
-        navigate('/login')
+      const currentToken = localStorage.getItem('token')
+      if (!currentToken) {
+        navigate('/login', { replace: true })
       }
     }
     window.addEventListener('storage', handleStorage)
@@ -88,19 +64,20 @@ function App() {
 
   return (
     <>
-      {/* Аппбар с бургером */}
+      {/* AppBar и Sidebar */}
       {isAuthenticated && (
-        <AppBar
-          position="fixed"
-          color="default"
-          style={{
-            // marginTop: '50px',
-            backgroundColor: theme === darkTheme ? '#121212' : '#fff',
-            zIndex: 5,
-          }}
-        >
-          <Toolbar>
-            {/* <CardHeader
+        <>
+          <AppBar
+            position="fixed"
+            color="default"
+            style={{
+              // marginTop: '50px',
+              backgroundColor: theme === darkTheme ? '#121212' : '#fff',
+              zIndex: 5,
+            }}
+          >
+            <Toolbar>
+              {/* <CardHeader
             avatar={
               <Avatar aria-label="Пользователь" src="../../../public/user.png">
                 AB
@@ -108,24 +85,21 @@ function App() {
             }
             title="С возвращением юзер"
           /> */}
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              Контроль бюджета
-            </Typography>
-            <IconButton
-              edge="end"
-              color="inherit"
-              aria-label="menu"
-              onClick={toggleSidebar}
-            >
-              <MenuIcon />
-            </IconButton>
-          </Toolbar>
-        </AppBar>
-      )}
-
-      {/* Боковая панель */}
-      {isAuthenticated && (
-        <Sidebar open={sidebarOpen} onClose={toggleSidebar} />
+              <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                Контроль бюджета
+              </Typography>
+              <IconButton
+                edge="end"
+                color="inherit"
+                aria-label="menu"
+                onClick={toggleSidebar}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Toolbar>
+          </AppBar>
+          <Sidebar open={sidebarOpen} onClose={toggleSidebar} />
+        </>
       )}
       {/* Основной контент */}
       <Container
@@ -133,33 +107,69 @@ function App() {
         style={{ marginTop: '80px', marginBottom: '80px' }}
       >
         <Routes>
-          {/* <Route path="/" element={<AuthForm />} /> */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Публичные маршруты — доступны только без авторизации */}
+
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPassword />
+              </PublicRoute>
+            }
+          />
 
           {/* Защищённые маршруты */}
-          {isAuthenticated ? (
-            <>
-              <Route
-                path="/"
-                element={
-                  <>
-                    <TransactionList />
-                    <TransactionModal />
-                    <Balance />
-                  </>
-                }
-              />
-              <Route path="/categories" element={<CategoryPage />} />
-              {/* Редирект с корня на дашборд */}
-              {/* <Route path="/" element={<Navigate to="/dashboard" />} /> */}
-            </>
-          ) : (
-            // Если не авторизован — редирект на /login
-            <Route path="*" element={<Navigate to="/login" />} />
-          )}
+
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/categories"
+            element={
+              <ProtectedRoute>
+                <CategoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/login" />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Container>
     </>

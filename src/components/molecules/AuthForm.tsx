@@ -1,6 +1,5 @@
 import {
   useForgotPasswordMutation,
-  useGetMeQuery,
   useLoginMutation,
   useRegisterMutation,
   useResetPasswordMutation,
@@ -35,23 +34,8 @@ type ErrorResponse = {
 }
 
 export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
-  const { data: user } = useGetMeQuery(undefined, {
-    skip: !localStorage.getItem('token'),
-  })
-
   const location = useLocation()
   const navigate = useNavigate()
-  const [isClient, setIsClient] = useState(false)
-  // Если токен есть, и getMe загрузился — редиректим
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (isClient && user) {
-      navigate('/', { replace: true })
-    }
-  }, [isClient, user, navigate])
 
   // Проверяем, есть ли токен в URL (для сброса пароля)
   const searchParams = new URLSearchParams(location.search)
@@ -93,18 +77,6 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
     setConfirmPassword('')
   }, [view, isResetMode])
 
-  // useEffect(() => {
-  //   const path = location.pathname
-
-  //   if (path === '/register') {
-  //     setView('register')
-  //   } else if (path === '/forgot-password') {
-  //     setView('forgotPassword')
-  //   } else {
-  //     setView('login')
-  //   }
-  // }, [location.pathname])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -120,14 +92,13 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
         }
         await resetPassword({ token, newPassword }).unwrap()
         alert('Пароль успешно изменён. Войдите с новым паролем.')
-
-        navigate('/login', { replace: true })
       } else if (view === 'login') {
-        await login({ email, password }).unwrap()
+        const result = await login({ email, password }).unwrap()
+        navigate('/', { replace: true })
+        return result
       } else if (view === 'register') {
         if (!name) return setError('Имя обязательно')
         await register({ name, email, password }).unwrap()
-        navigate('/', { replace: true })
       } else if (view === 'forgotPassword') {
         if (!email) return setError('Email обязателен')
         await forgotPassword({ email }).unwrap()
