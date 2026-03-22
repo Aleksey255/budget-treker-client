@@ -24,7 +24,7 @@ export const AddTransaction = ({ onClose }: AddTransactionProps) => {
   const [addTransaction] = useAddTransactionMutation()
   const [newTransaction, setNewTransaction] = useState<{
     type: 'income' | 'expense'
-    amount: number | ''
+    amount: string
     categoryId: string
     categoryName: string
     description?: string
@@ -37,10 +37,37 @@ export const AddTransaction = ({ onClose }: AddTransactionProps) => {
     description: '',
     date: new Date(),
   })
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value
+
+    // Нормализация: запятая → точка (для русской раскладки)
+    value = value.replace(',', '.')
+
+    // Разрешаем пустое поле
+    if (value === '') {
+      setNewTransaction({
+        ...newTransaction,
+        amount: '',
+      })
+      return
+    }
+    // Регулярное выражение:
+    // - Только цифры и одна точка
+    // - Не больше двух цифр после точки
+    const regex = /^\d*\.?\d{0,2}$/
+
+    if (regex.test(value)) {
+      setNewTransaction({ ...newTransaction, amount: value })
+    }
+  }
 
   const handleSubmit = async () => {
+    // Валидация: проверяем строку, но парсим в число для отправки
+    const amountNum = parseFloat(newTransaction.amount)
+
     if (
       !newTransaction.amount ||
+      isNaN(amountNum) ||
       !newTransaction.categoryId ||
       !newTransaction.categoryName ||
       !newTransaction.date
@@ -51,7 +78,7 @@ export const AddTransaction = ({ onClose }: AddTransactionProps) => {
 
     const transactionToSend = {
       ...newTransaction,
-      amount: Number(newTransaction.amount), // гарантируем number
+      amount: amountNum,
       date: newTransaction.date.toISOString().split('T')[0], // ← строка для API
     }
 
@@ -124,25 +151,21 @@ export const AddTransaction = ({ onClose }: AddTransactionProps) => {
         sx={{ width: { xs: '100%', sm: 246 } }}
         label="Сумма"
         variant="outlined"
-        type="number"
+        type="text"
         name="amount"
         id="amount"
         value={newTransaction.amount}
-        onChange={e => {
-          const value = e.target.value
-          setNewTransaction({
-            ...newTransaction,
-            amount: value === '' ? '' : Number(value),
-          })
+        onChange={handleChange}
+        slotProps={{
+          input: {
+            inputMode: 'decimal',
+            inputProps: {
+              pattern: '[0-9]*(\\.?[0-9]{1,2})?',
+            },
+          },
         }}
-        onKeyDown={e => {
-          if (
-            e.key === '-' ||
-            e.key === 'e' ||
-            e.key === '+' ||
-            e.key === '.' ||
-            e.key === ','
-          ) {
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (['-', 'e', 'E', '+', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
             e.preventDefault()
           }
         }}
