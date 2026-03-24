@@ -12,11 +12,6 @@ export const TransactionList = () => {
   const { data: transactions = [], isLoading } = useGetTransactionsQuery()
   const [deleteTransaction] = useDeleteTransactionMutation()
 
-  // // Сортируем: от самых старых к самым новым (по дате)
-  // const sortedTransactions = [...transactions].sort((a, b) => {
-  //   return new Date(a.date).getTime() - new Date(b.date).getTime()
-  // })
-
   const handleDelete = async (id: string) => {
     await deleteTransaction(id).unwrap()
   }
@@ -36,7 +31,10 @@ export const TransactionList = () => {
     >
       <List
         sx={{
+          maxHeight: { xs: 300, md: 1000 },
+          overflow: 'auto',
           flex: 1,
+          order: { xs: 1, md: 0 },
           minWidth: 0,
           p: 0, // убираем отступы по умолчанию
           display: 'flex',
