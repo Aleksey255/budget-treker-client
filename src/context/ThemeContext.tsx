@@ -1,4 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react'
+import { ThemeProvider as MuiThemeProvider } from '@mui/material'
 import { lightTheme } from '../styles/theme/lightTheme'
 import { darkTheme } from '../styles/theme/darkTheme'
 
@@ -35,7 +36,7 @@ export const ThemeProviderWrapper = ({
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
+      <MuiThemeProvider theme={theme}>{children}</MuiThemeProvider>
     </ThemeContext.Provider>
   )
 }
