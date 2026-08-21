@@ -10,6 +10,7 @@ import {
   Toolbar,
 } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Settings as SettingsIcon } from '@mui/icons-material'
 
 interface SidebarProps {
   open: boolean
@@ -88,6 +89,20 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
               </ListItemButton>
             </ListItem>
           )}
+
+          <ListItem disablePadding>
+            <ListItemButton component="div">
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                onClick={() => navigate('/settings')}
+                startIcon={<SettingsIcon />}
+              >
+                Настройки
+              </Button>
+            </ListItemButton>
+          </ListItem>
 
           {/* Кнопка выхода */}
           <ListItem disablePadding>

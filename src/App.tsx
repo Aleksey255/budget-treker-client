@@ -22,6 +22,7 @@ import { Login } from './components/organisms/Login'
 import { Register } from './components/organisms/Register'
 import { ForgotPassword } from './components/organisms/ForgotPassword'
 import { ResetPassword } from './components/organisms/ResetPassword'
+import { SettingsPage } from './pages/SettingsPage'
 
 function App() {
   const { theme } = useTheme()
@@ -121,6 +122,7 @@ function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/categories" element={<CategoryPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </>
           ) : (
             // 🔓 Публичные маршруты (используем ваши оригинальные компоненты)
