@@ -233,7 +233,7 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         freeSolo
         options={descriptionOptions}
         value={newTransaction.description}
-        onInputChange={(event, newInputValue) =>
+        onInputChange={(_event, newInputValue) =>
           setNewTransaction({ ...newTransaction, description: newInputValue })
         }
         renderInput={params => (
