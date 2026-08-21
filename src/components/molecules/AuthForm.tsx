@@ -1,9 +1,3 @@
-import {
-  useForgotPasswordMutation,
-  useLoginMutation,
-  useRegisterMutation,
-  useResetPasswordMutation,
-} from '@/store/apiSlice'
 import { Visibility, VisibilityOff } from '@mui/icons-material'
 import {
   Alert,
@@ -20,54 +14,36 @@ import {
 } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabaseClient' // Убедитесь, что путь правильный
 
 type AuthFormProps = {
   initialView?: 'login' | 'register' | 'forgotPassword'
-}
-
-// 🔍 Тип для ответа ошибки с сервера
-type ErrorResponse = {
-  data?: {
-    message?: string
-  }
-  status?: number
 }
 
 export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Проверяем, есть ли токен в URL (для сброса пароля)
-  const searchParams = new URLSearchParams(location.search)
-  const token = searchParams.get('token')
-  const isResetMode = Boolean(token)
+  // Supabase добавляет type=recovery в hash URL при переходе по ссылке сброса
+  const isResetMode =
+    location.hash.includes('type=recovery') ||
+    location.search.includes('reset=true')
 
   const [view, setView] = useState<'login' | 'register' | 'forgotPassword'>(
-    initialView
+    isResetMode ? 'login' : initialView
   )
 
-  // Форма
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  // Показ пароля
   const [showPassword, setShowPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
-
-  // Ошибки
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  // RTK Query мутации
-  const [register, { isLoading: isRegistering }] = useRegisterMutation()
-  const [login, { isLoading: isLoggingIn }] = useLoginMutation()
-  const [forgotPassword, { isLoading: isSendingReset }] =
-    useForgotPasswordMutation()
-  const [resetPassword, { isLoading: isResetting }] = useResetPasswordMutation()
-
-  // Сброс ошибки при переключении вкладок
   useEffect(() => {
     setError('')
     setEmail('')
@@ -80,41 +56,63 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setIsLoading(true)
 
     try {
-      if (isResetMode && token) {
-        // Режим сброса пароля
-        if (!newPassword || !confirmPassword) {
-          return setError('Все поля обязательны')
-        }
-        if (newPassword !== confirmPassword) {
-          return setError('Пароли не совпадают')
-        }
-        await resetPassword({ token, newPassword }).unwrap()
-        alert('Пароль успешно изменён. Войдите с новым паролем.')
+      if (isResetMode) {
+        if (!newPassword || !confirmPassword)
+          throw new Error('Все поля обязательны')
+        if (newPassword !== confirmPassword)
+          throw new Error('Пароли не совпадают')
+
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword,
+        })
+        if (error) throw error
+
+        alert('Пароль успешно изменён. Теперь вы можете войти.')
+        navigate('/auth', { replace: true }) // Перенаправляем на чистый экран входа
       } else if (view === 'login') {
-        const result = await login({ email, password }).unwrap()
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (error) throw error
+
         navigate('/', { replace: true })
-        return result
       } else if (view === 'register') {
-        if (!name) return setError('Имя обязательно')
-        await register({ name, email, password }).unwrap()
-      } else if (view === 'forgotPassword') {
-        if (!email) return setError('Email обязателен')
-        await forgotPassword({ email }).unwrap()
+        if (!name) throw new Error('Имя обязательно')
+
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: name } },
+        })
+        if (error) throw error
+
+        alert('Регистрация успешна! Проверьте почту или попробуйте войти.')
         setView('login')
+      } else if (view === 'forgotPassword') {
+        if (!email) throw new Error('Email обязателен')
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth?reset=true`,
+        })
+        if (error) throw error
+
         alert('Ссылка для восстановления отправлена на ваш email')
+        setView('login')
       }
     } catch (err) {
-      let message = 'Неверный email или пароль'
-      if (typeof err === 'object' && err !== null && 'data' in err) {
-        message = (err as ErrorResponse).data?.message || message
-      }
-      setError(message)
+      const errorMessage =
+        err instanceof Error ? err.message : 'Произошла неизвестная ошибка'
+      setError(errorMessage)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  // Сброс пароля — отдельная форма
+  // Рендер формы сброса пароля
   if (isResetMode) {
     return (
       <Container maxWidth="xs">
@@ -138,7 +136,7 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               autoFocus
-              disabled={isResetting}
+              disabled={isLoading}
             />
             <TextField
               label="Подтвердите пароль"
@@ -147,12 +145,11 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
               margin="normal"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
-              disabled={isResetting}
+              disabled={isLoading}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label="toggle password visibility"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       edge="end"
                     >
@@ -162,7 +159,6 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
                 ),
               }}
             />
-
             <Button
               type="submit"
               variant="contained"
@@ -170,9 +166,9 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
               fullWidth
               size="large"
               sx={{ mt: 3 }}
-              disabled={isResetting}
+              disabled={isLoading}
             >
-              {isResetting ? 'Сохранение...' : 'Сменить пароль'}
+              {isLoading ? 'Сохранение...' : 'Сменить пароль'}
             </Button>
           </Box>
         </Paper>
@@ -180,6 +176,7 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
     )
   }
 
+  // Основной рендер (Вход / Регистрация / Забыли пароль)
   return (
     <Container maxWidth="xs">
       <Paper sx={{ mt: 8, p: 4, borderRadius: 3, boxShadow: 3 }}>
@@ -187,7 +184,6 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
           Контроль бюджета
         </Typography>
 
-        {/* Вкладки */}
         <Tabs
           value={view}
           onChange={(_, newValue) => setView(newValue)}
@@ -199,14 +195,12 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
           <Tab label="Забыли пароль?" value="forgotPassword" />
         </Tabs>
 
-        {/* Сообщение об ошибке */}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
-        {/* Форма */}
         <Box component="form" onSubmit={handleSubmit}>
           {view === 'register' && (
             <TextField
@@ -217,7 +211,7 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
               value={name}
               onChange={e => setName(e.target.value)}
               autoFocus
-              disabled={isRegistering}
+              disabled={isLoading}
             />
           )}
 
@@ -229,14 +223,9 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
             value={email}
             onChange={e => setEmail(e.target.value)}
             autoFocus={!name && view !== 'forgotPassword'}
-            disabled={
-              view === 'forgotPassword'
-                ? isSendingReset
-                : isLoggingIn || isRegistering
-            }
+            disabled={isLoading}
           />
 
-          {/* Пароль — только во входе и регистрации */}
           {view !== 'forgotPassword' && (
             <TextField
               label="Пароль"
@@ -245,12 +234,11 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
               margin="normal"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              disabled={isLoggingIn || isRegistering}
+              disabled={isLoading}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label="toggle password visibility"
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
                     >
@@ -269,11 +257,9 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
             fullWidth
             size="large"
             sx={{ mt: 3, mb: 2 }}
-            disabled={
-              isLoggingIn || isRegistering || isSendingReset || isResetting
-            }
+            disabled={isLoading}
           >
-            {isLoggingIn || isRegistering || isSendingReset || isResetting
+            {isLoading
               ? 'Загрузка...'
               : view === 'login'
                 ? 'Войти'
@@ -282,7 +268,7 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
                   : 'Отправить ссылку'}
           </Button>
         </Box>
-        {/* Подсказка */}
+
         <Typography variant="body2" color="text.secondary" align="center">
           {view === 'login' && (
             <Button size="small" onClick={() => setView('forgotPassword')}>

@@ -1,90 +1,94 @@
 import {
   AppBar,
-  // Avatar,
-  // CardHeader,
   Container,
   IconButton,
   Toolbar,
   Typography,
+  CircularProgress,
+  Box,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import { useTheme } from './context/ThemeContext'
-// import { TransactionModal } from './components/organisms/TransactionModal'
-// import { Balance } from './components/organisms/Balance'
-// import { TransactionList } from './components/organisms/TransactionList'
 import { CategoryPage } from './pages/CategoryPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Sidebar } from './components/molecules/Sidebar'
 import { darkTheme } from './styles/theme/darkTheme'
-import { useGetMeQuery } from './store/apiSlice'
+import { supabase } from './lib/supabaseClient' // Убедитесь, что путь правильный
+
+// Ваши оригинальные компоненты авторизации
 import { Login } from './components/organisms/Login'
 import { Register } from './components/organisms/Register'
 import { ForgotPassword } from './components/organisms/ForgotPassword'
 import { ResetPassword } from './components/organisms/ResetPassword'
-import { PublicRoute } from './components/atoms/PublicRoute'
-import { ProtectedRoute } from './components/atoms/ProtectedRoute'
 
 function App() {
-  const { theme } = useTheme() // для цвета аппбара
+  const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
 
-  const token = localStorage.getItem('token')
-
-  const { data: userData, isError } = useGetMeQuery(undefined, {
-    skip: !token,
-  })
-
-  // ✅ Актуальный флаг авторизации
-  const isAuthenticated = !!token && !!userData && !isError
+  // Состояние аутентификации и загрузки
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (token && isError) {
-      localStorage.removeItem('token')
-    }
-  }, [token, isError])
+    // 1. Проверяем текущую сессию при первой загрузке
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session)
+      setIsLoading(false)
+    })
 
-  // Слушаем изменения localStorage (например, выход в другом окне)
-  useEffect(() => {
-    const handleStorage = () => {
-      const currentToken = localStorage.getItem('token')
-      if (!currentToken) {
+    // 2. Подписываемся на изменения состояния аутентификации
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session)
+
+      // Если сессия пропала (например, выход в другой вкладке), перенаправляем на логин
+      if (!session) {
         navigate('/login', { replace: true })
       }
-    }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
-  }, [isAuthenticated, navigate])
+    })
+
+    // Очистка подписки при размонтировании
+    return () => subscription.unsubscribe()
+  }, [navigate])
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev)
   }
 
+  // Показываем загрузку, пока Supabase проверяет сессию
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    )
+  }
+
   return (
     <>
-      {/* AppBar и Sidebar */}
+      {/* AppBar и Sidebar отображаются только для авторизованных пользователей */}
       {isAuthenticated && (
         <>
           <AppBar
             position="fixed"
             color="default"
-            style={{
-              // marginTop: '50px',
+            sx={{
               backgroundColor: theme === darkTheme ? '#121212' : '#fff',
-              zIndex: 5,
+              zIndex: theme => theme.zIndex.drawer + 1,
             }}
           >
             <Toolbar>
-              {/* <CardHeader
-            avatar={
-              <Avatar aria-label="Пользователь" src="../../../public/user.png">
-                AB
-              </Avatar>
-            }
-            title="С возвращением юзер"
-          /> */}
               <Typography variant="h6" sx={{ flexGrow: 1 }}>
                 Контроль бюджета
               </Typography>
@@ -101,75 +105,33 @@ function App() {
           <Sidebar open={sidebarOpen} onClose={toggleSidebar} />
         </>
       )}
+
       {/* Основной контент */}
       <Container
         maxWidth="sm"
-        style={{ marginTop: '80px', marginBottom: '80px' }}
+        sx={{
+          marginTop: isAuthenticated ? '80px' : '40px',
+          marginBottom: '80px',
+        }}
       >
         <Routes>
-          {/* Публичные маршруты — доступны только без авторизации */}
-
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <PublicRoute>
-                <ForgotPassword />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/reset-password"
-            element={
-              <PublicRoute>
-                <ResetPassword />
-              </PublicRoute>
-            }
-          />
-
-          {/* Защищённые маршруты */}
-
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/categories"
-            element={
-              <ProtectedRoute>
-                <CategoryPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route path="*" element={<Navigate to="/login" />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+          {isAuthenticated ? (
+            // 🔒 Защищённые маршруты
+            <>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/categories" element={<CategoryPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          ) : (
+            // 🔓 Публичные маршруты (используем ваши оригинальные компоненты)
+            <>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </>
+          )}
         </Routes>
       </Container>
     </>

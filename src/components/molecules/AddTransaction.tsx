@@ -3,195 +3,259 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Alert,
+  Autocomplete,
   type SelectChangeEvent,
 } from '@mui/material'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CustomSelect } from './CustomSelect'
-import {
-  useAddTransactionMutation,
-  useGetCategoriesQuery,
-} from '@/store/apiSlice'
+import { supabase } from '@/lib/supabaseClient'
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { ru } from 'date-fns/locale'
+import { type Transaction } from '@/types/transaction'
+
+interface Category {
+  id: string
+  name: string
+  type: 'income' | 'expense' | 'both'
+}
 
 interface AddTransactionProps {
   onClose: () => void
+  editData?: Transaction | null // <-- НОВЫЙ ПРОП для редактирования
 }
 
-export const AddTransaction = ({ onClose }: AddTransactionProps) => {
-  const { data: categories = [] } = useGetCategoriesQuery()
-  const [addTransaction] = useAddTransactionMutation()
-  const [newTransaction, setNewTransaction] = useState<{
-    type: 'income' | 'expense'
-    amount: string
-    categoryId: string
-    categoryName: string
-    description?: string
-    date: Date | null
-  }>({
-    type: 'expense',
-    amount: '',
-    categoryId: '',
-    categoryName: '',
-    description: '',
-    date: new Date(),
+export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
+  const [categories, setCategories] = useState<Category[]>([])
+  const [descriptionOptions, setDescriptionOptions] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Инициализируем форму: если есть editData, заполняем её, иначе пустыми значениями
+  const [newTransaction, setNewTransaction] = useState(() => {
+    if (editData) {
+      return {
+        type: editData.type,
+        amount: editData.amount.toString(),
+        categoryId: editData.category_id || '',
+        description: editData.description || '',
+        date: new Date(editData.date),
+      }
+    }
+    return {
+      type: 'expense' as 'income' | 'expense',
+      amount: '',
+      categoryId: '',
+      description: '',
+      date: new Date(),
+    }
   })
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data: catData, error: catError } = await supabase
+          .from('categories')
+          .select('id, name, type')
+          .order('name')
+        if (catError) throw catError
+        setCategories(catData || [])
+
+        const { data: descData } = await supabase
+          .from('transactions')
+          .select('description')
+          .not('description', 'is', null)
+          .neq('description', '')
+          .order('date', { ascending: false })
+          .limit(100)
+
+        if (descData) {
+          const uniqueDescriptions = [
+            ...new Set(descData.map(t => t.description).filter(Boolean)),
+          ]
+          setDescriptionOptions(uniqueDescriptions as string[])
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Ошибка загрузки данных')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value
-
-    // Нормализация: запятая → точка (для русской раскладки)
-    value = value.replace(',', '.')
-
-    // Разрешаем пустое поле
+    const value = e.target.value.replace(',', '.')
     if (value === '') {
-      setNewTransaction({
-        ...newTransaction,
-        amount: '',
-      })
+      setNewTransaction({ ...newTransaction, amount: '' })
       return
     }
-    // Регулярное выражение:
-    // - Только цифры и одна точка
-    // - Не больше двух цифр после точки
-    const regex = /^\d*\.?\d{0,2}$/
-
-    if (regex.test(value)) {
+    if (/^\d*\.?\d{0,2}$/.test(value)) {
       setNewTransaction({ ...newTransaction, amount: value })
     }
   }
 
   const handleSubmit = async () => {
-    // Валидация: проверяем строку, но парсим в число для отправки
-    const amountNum = parseFloat(newTransaction.amount)
+    setError(null)
+    setIsSubmitting(true)
 
-    if (
-      !newTransaction.amount ||
-      isNaN(amountNum) ||
-      !newTransaction.categoryId ||
-      !newTransaction.categoryName ||
-      !newTransaction.date
-    ) {
-      alert('Заполните сумму и категорию')
-      return
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+      if (authError || !user) throw new Error('Пользователь не авторизован')
+
+      const amountNum = parseFloat(newTransaction.amount)
+      if (
+        !newTransaction.amount ||
+        isNaN(amountNum) ||
+        !newTransaction.categoryId ||
+        !newTransaction.date
+      ) {
+        throw new Error('Заполните сумму, категорию и дату')
+      }
+
+      const payload = {
+        type: newTransaction.type,
+        amount: amountNum,
+        category_id: newTransaction.categoryId || null,
+        description: newTransaction.description || null,
+        date: newTransaction.date.toISOString(),
+      }
+
+      let error
+      if (editData) {
+        // РЕЖИМ РЕДАКТИРОВАНИЯ
+        const res = await supabase
+          .from('transactions')
+          .update(payload)
+          .eq('id', editData.id)
+        error = res.error
+      } else {
+        // РЕЖИМ СОЗДАНИЯ
+        const res = await supabase
+          .from('transactions')
+          .insert({ ...payload, user_id: user.id })
+        error = res.error
+      }
+
+      if (error) throw error
+
+      window.dispatchEvent(new Event('transactions-changed'))
+      onClose()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Не удалось сохранить транзакцию'
+      )
+    } finally {
+      setIsSubmitting(false)
     }
-
-    const transactionToSend = {
-      ...newTransaction,
-      amount: amountNum,
-      date: newTransaction.date.toISOString().split('T')[0], // ← строка для API
-    }
-
-    await addTransaction(transactionToSend).unwrap()
-
-    // Сброс: дата как Date
-    setNewTransaction({
-      type: 'expense',
-      amount: '',
-      categoryId: '',
-      categoryName: '',
-      description: '',
-      date: new Date(),
-    })
-    onClose()
   }
-  const selectCategory = (e: SelectChangeEvent<string>) => {
-    const selectedId = e.target.value
-    const category = categories.find(cat => cat._id === selectedId)
 
-    setNewTransaction({
-      ...newTransaction,
-      categoryId: selectedId,
-      categoryName: category ? category.name : '', // ✅ Правильное имя
-    })
+  const selectCategory = (e: SelectChangeEvent<string>) => {
+    setNewTransaction({ ...newTransaction, categoryId: e.target.value })
   }
 
   return (
     <Stack
       direction="column"
       spacing={2}
-      sx={{
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        p: 2,
-      }}
+      sx={{ alignItems: 'center', flexWrap: 'wrap', p: 2 }}
     >
+      {error && (
+        <Alert severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      )}
+
       <CustomSelect
-        // width='100%'
         sx={{ width: { xs: '100%', sm: 246 } }}
-        label="Категория"
-        name="categoryId"
-        value={newTransaction.categoryId}
-        onChange={selectCategory}
-      >
-        <MenuItem value="">— Выберите —</MenuItem>
-        {categories.map(cat => (
-          <MenuItem key={cat._id} value={cat._id}>
-            {cat.name}
-          </MenuItem>
-        ))}
-      </CustomSelect>
-      <CustomSelect
-        // width='100%'
-        sx={{ width: { xs: '100%', sm: 246 } }}
-        label="Тип"
+        label="Тип операции"
         name="type"
         value={newTransaction.type}
         onChange={e =>
           setNewTransaction({
             ...newTransaction,
             type: e.target.value as 'income' | 'expense',
+            categoryId: '',
           })
         }
       >
-        <MenuItem value="income">Доход</MenuItem>
-        <MenuItem value="expense">Расход</MenuItem>
+        <MenuItem value="income">📥 Доход</MenuItem>
+        <MenuItem value="expense">📤 Расход</MenuItem>
       </CustomSelect>
+
+      <CustomSelect
+        sx={{ width: { xs: '100%', sm: 246 } }}
+        label="Категория"
+        name="categoryId"
+        value={newTransaction.categoryId}
+        onChange={selectCategory}
+        disabled={isLoading}
+      >
+        <MenuItem value="">— Выберите —</MenuItem>
+        {categories.map(cat => (
+          <MenuItem key={cat.id} value={cat.id}>
+            {cat.name}{' '}
+            {cat.type === 'both'
+              ? '(Универс.)'
+              : cat.type === 'income'
+                ? '(Доход)'
+                : '(Расход)'}
+          </MenuItem>
+        ))}
+      </CustomSelect>
+
       <TextField
         sx={{ width: { xs: '100%', sm: 246 } }}
         label="Сумма"
         variant="outlined"
         type="text"
-        name="amount"
-        id="amount"
         value={newTransaction.amount}
         onChange={handleChange}
         slotProps={{
           input: {
             inputMode: 'decimal',
-            inputProps: {
-              pattern: '[0-9]*(\\.?[0-9]{1,2})?',
-            },
+            inputProps: { pattern: '[0-9]*(\\.?[0-9]{1,2})?' },
           },
         }}
         onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-          if (['-', 'e', 'E', '+', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+          if (['-', 'e', 'E', '+', 'ArrowUp', 'ArrowDown'].includes(e.key))
             e.preventDefault()
-          }
         }}
         fullWidth
       />
 
-      <TextField
-        sx={{ width: { xs: '100%', sm: 246 } }}
-        label="Описание"
-        variant="outlined"
-        name="description"
-        id="description"
+      <Autocomplete
+        freeSolo
+        options={descriptionOptions}
         value={newTransaction.description}
-        onChange={e =>
-          setNewTransaction({ ...newTransaction, description: e.target.value })
+        onInputChange={(_event, newInputValue) =>
+          setNewTransaction({ ...newTransaction, description: newInputValue })
         }
-        fullWidth
+        renderInput={params => (
+          <TextField
+            {...params}
+            label="Описание"
+            variant="outlined"
+            sx={{ width: { xs: '100%', sm: 246 } }}
+          />
+        )}
       />
+
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
         <DesktopDatePicker
-          // sx={{ mr: 2 }}
           label="Дата"
           value={newTransaction.date}
-          onChange={newValue =>
-            setNewTransaction({ ...newTransaction, date: newValue })
-          }
+          onChange={newValue => {
+            // Если пользователь очистил поле, оставляем текущую дату
+            if (newValue !== null) {
+              setNewTransaction({ ...newTransaction, date: newValue })
+            }
+          }}
           slotProps={{
             textField: {
               sx: { width: { xs: '100%', sm: 246 } },
@@ -208,8 +272,13 @@ export const AddTransaction = ({ onClose }: AddTransactionProps) => {
         color="primary"
         onClick={handleSubmit}
         sx={{ mt: 2 }}
+        disabled={isSubmitting || isLoading}
       >
-        Добавить транзакцию
+        {isSubmitting
+          ? 'Сохранение...'
+          : editData
+            ? 'Сохранить изменения'
+            : 'Добавить транзакцию'}
       </Button>
     </Stack>
   )

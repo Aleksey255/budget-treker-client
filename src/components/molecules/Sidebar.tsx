@@ -1,5 +1,5 @@
 import { useTheme } from '@/context/ThemeContext'
-import { useLogoutMutation } from '@/store/apiSlice'
+import { supabase } from '@/lib/supabaseClient'
 import {
   Box,
   Button,
@@ -21,8 +21,6 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
   const location = useLocation()
   const { toggleTheme } = useTheme()
 
-  const [logout] = useLogoutMutation()
-
   const isOnCategories = location.pathname === '/categories'
 
   const handleGoBack = () => {
@@ -41,9 +39,18 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
   }
 
   const handleLogout = async () => {
-    await logout() // Очищает localStorage и инвалидирует теги
-    navigate('/login', { replace: true })
-    onClose()
+    try {
+      // Выход из Supabase (автоматически очистит сессию и localStorage)
+      await supabase.auth.signOut()
+
+      // Явный переход для мгновенного отклика UI
+      // (хотя onAuthStateChange в App.tsx тоже это сделает)
+      navigate('/login', { replace: true })
+      onClose()
+    } catch (error) {
+      console.error('Ошибка при выходе:', error)
+      alert('Не удалось выйти из аккаунта')
+    }
   }
 
   return (
