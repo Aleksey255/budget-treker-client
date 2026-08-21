@@ -1,11 +1,22 @@
-export interface Transactions {
-  _id: string
+export interface Transaction {
+  id: string
   type: 'income' | 'expense'
   amount: number
-  categoryId: string
-  categoryName: string
-  description?: string
+  description: string | null
   date: string
+  category_id: string | null
+  // Универсальный тип: может быть и объект, и массив
+  categories?: { name: string } | { name: string }[] | null
 }
 
-export type NewTransaction = Omit<Transactions, '_id'>
+export const getCategoryName = (tx: Transaction): string => {
+  if (!tx.categories) return 'Без категории'
+
+  // Если это массив — берем первый элемент
+  if (Array.isArray(tx.categories)) {
+    return tx.categories[0]?.name || 'Без категории'
+  }
+
+  // Если это объект — берем name напрямую
+  return (tx.categories as { name: string }).name || 'Без категории'
+}
