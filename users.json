@@ -1,0 +1,75 @@
+[{
+  "_id": {
+    "$oid": "69878cb29fb31f0f7d89183c"
+  },
+  "name": "Алекс",
+  "email": "aleksey-255@mail.ru",
+  "password": "$2b$12$/eyrJvSPIkRlYC2jk.DT5Oh6zUt9w7cQMTc9zxkDfv8GgfSBs9uta",
+  "createdAt": {
+    "$date": "2026-02-07T19:04:18.871Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-07T19:04:18.871Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6987ae04469be61d27137d13"
+  },
+  "name": "Алексей",
+  "email": "aleks@alekssky.ru",
+  "password": "$2b$12$56P7zV9ldGcappi3qMhO9.P7SsH/uwoHiik7ZfxCJ911kP8cgMjBG",
+  "createdAt": {
+    "$date": "2026-02-07T21:26:28.816Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-07T21:26:28.816Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6988d1abc09bdb964a839bf3"
+  },
+  "name": "k",
+  "email": "k@k",
+  "password": "$2b$12$JjdW1LjZy.Tk1aK/vRIiUu31wPcCpxPFc/TTtVbFlwiHPZrwmG5ya",
+  "createdAt": {
+    "$date": "2026-02-08T18:10:51.090Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-08T18:10:51.090Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69b78ab6f69e32b8ff85f8e2"
+  },
+  "name": "Александр",
+  "email": "arktur369@mail.ru",
+  "password": "$2b$12$i/sEuXrT6zEWvQ6lmK2SiOyfqU1xCH3duF6vILO0.REIvKmoALC4a",
+  "createdAt": {
+    "$date": "2026-03-16T04:44:38.280Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-16T04:44:38.280Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69c0fe80f69e32b8ff85faea"
+  },
+  "name": "Veter",
+  "email": "gala-1970@mail.ru",
+  "password": "$2b$12$pGz9z49RANhygea2sd0kN.nWQYaiphVsA64Fu9nCqC7Lo0vXZCWDe",
+  "createdAt": {
+    "$date": "2026-03-23T08:49:04.700Z"
+  },
+  "updatedAt": {
+    "$date": "2026-03-23T08:49:04.700Z"
+  },
+  "__v": 0
+}]

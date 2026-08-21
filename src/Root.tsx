@@ -1,8 +1,8 @@
-import { Provider } from 'react-redux'
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
 import { useTheme } from './context/ThemeContext'
-import { store } from './store/store'
+import { DateFilterProvider } from './context/DateFilterContext'
+
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 
@@ -10,15 +10,15 @@ export const Root = () => {
   const { theme } = useTheme()
 
   return (
-    <Provider store={store}>
-      <ThemeProvider theme={theme}>
+    <ThemeProvider theme={theme}>
+      <DateFilterProvider>
         <BrowserRouter
           key={typeof window === 'undefined' ? 'server' : 'client'}
         >
           <CssBaseline />
           <App />
         </BrowserRouter>
-      </ThemeProvider>
-    </Provider>
+      </DateFilterProvider>
+    </ThemeProvider>
   )
 }
