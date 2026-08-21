@@ -44,6 +44,8 @@ export const CustomModal = ({
       onClose={onClose}
       maxWidth={maxWidth}
       fullWidth={fullWidth}
+      disableRestoreFocus
+      disableEnforceFocus
       {...dialogProps}
     >
       <DialogTitle>{title}</DialogTitle>
