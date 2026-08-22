@@ -236,12 +236,12 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         onInputChange={(_event, newInputValue) =>
           setNewTransaction({ ...newTransaction, description: newInputValue })
         }
+        sx={{ width: { xs: '100%', sm: 246 } }}
         renderInput={params => (
           <TextField
             {...params}
             label="Описание"
             variant="outlined"
-            sx={{ width: { xs: '100%', sm: 246 } }}
           />
         )}
       />
