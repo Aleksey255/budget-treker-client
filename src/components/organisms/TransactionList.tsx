@@ -1,6 +1,5 @@
 import {
   Box,
-  IconButton,
   List,
   Paper,
   Typography,
@@ -11,19 +10,31 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  InputAdornment,
   TextField,
   Autocomplete,
   Dialog,
   DialogContent,
+  InputAdornment,
 } from '@mui/material'
-import { Close, Edit, Search, Clear } from '@mui/icons-material'
+import {
+  Search,
+  Clear,
+  CloudOff,
+  CheckCircle,
+} from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { RadialTransactionChart } from '../molecules/RadialTransactionChart'
 import { getCategoryName, type Transaction } from '@/types/transaction'
 import { useDateFilter, formatDateForQuery } from '@/context/DateFilterContext'
 import { AddTransaction } from '../molecules/AddTransaction'
+import {
+  getPendingTransactions,
+  clearPendingTransactions,
+  type LocalTransaction,
+} from '@/utils/offlineStorage'
+import { EditButton } from '../atoms/EditButton'
+import { DeleteButton } from '../atoms/DeleteButton'
 
 interface Category {
   id: string
@@ -47,21 +58,86 @@ export const TransactionList = () => {
 
   // Фильтры
   const [filterCategoryId, setFilterCategoryId] = useState<string>('')
-  const [inputDescription, setInputDescription] = useState<string>('') // Для ввода в Autocomplete
-  const [searchDescription, setSearchDescription] = useState<string>('') // Для реального запроса (с debounce)
+  const [inputDescription, setInputDescription] = useState<string>('')
+  const [searchDescription, setSearchDescription] = useState<string>('')
 
-  // 1. Загрузка категорий и вариантов описаний при монтировании
+  // Оффлайн-транзакции
+  const [pendingTransactions, setPendingTransactions] = useState<
+    LocalTransaction[]
+  >([])
+
+  // 👇 НОВЫЙ ЭФФЕКТ: Слушаем обновление локальных транзакций
+  useEffect(() => {
+    const handlePendingUpdate = () => {
+      // Читаем актуальные данные из localStorage и обновляем экран
+      setPendingTransactions(getPendingTransactions())
+    }
+
+    window.addEventListener('pending-updated', handlePendingUpdate)
+
+    // Также загружаем их при первом открытии страницы
+    setPendingTransactions(getPendingTransactions())
+
+    return () => {
+      window.removeEventListener('pending-updated', handlePendingUpdate)
+    }
+  }, [])
+
+  // 1. Загрузка локальных транзакций при монтировании
+  useEffect(() => {
+    setPendingTransactions(getPendingTransactions())
+  }, [])
+
+  // 2. Автоматическая синхронизация при появлении интернета
+  useEffect(() => {
+    const handleOnline = async () => {
+      const pending = getPendingTransactions()
+      if (pending.length === 0) return
+
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
+
+        const txsToSend = pending.map(tx => ({
+          type: tx.type,
+          amount: tx.amount,
+          category_id: tx.category_id,
+          description: tx.description || null,
+          date: tx.date,
+          user_id: user.id,
+        }))
+
+        const { error } = await supabase.from('transactions').insert(txsToSend)
+
+        if (!error) {
+          clearPendingTransactions()
+          setPendingTransactions([])
+          window.dispatchEvent(new Event('transactions-changed'))
+          console.log('✅ Оффлайн-транзакции успешно синхронизированы!')
+        }
+      } catch (err) {
+        console.error('Ошибка синхронизации:', err)
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    if (navigator.onLine) handleOnline()
+
+    return () => window.removeEventListener('online', handleOnline)
+  }, [])
+
+  // 3. Загрузка категорий и вариантов описаний
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Категории
         const { data: catData } = await supabase
           .from('categories')
           .select('id, name, type')
           .order('name')
         if (catData) setCategories(catData)
 
-        // Уникальные описания для автокомплита (последние 100)
         const { data: descData } = await supabase
           .from('transactions')
           .select('description')
@@ -83,7 +159,7 @@ export const TransactionList = () => {
     fetchInitialData()
   }, [])
 
-  // 2. Debounce для поиска по описанию (ждем 500мс после окончания ввода)
+  // 4. Debounce для поиска по описанию
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchDescription(inputDescription)
@@ -91,9 +167,15 @@ export const TransactionList = () => {
     return () => clearTimeout(timer)
   }, [inputDescription])
 
-  // 3. Загрузка транзакций при изменении дат или фильтров
+  // 5. Загрузка транзакций при изменении дат или фильтров
   useEffect(() => {
     const fetchTransactions = async () => {
+      // Если нет интернета, не пытаемся загружать с сервера
+      if (!navigator.onLine) {
+        setIsLoading(false)
+        return
+      }
+
       try {
         setIsLoading(true)
         setError(null)
@@ -111,13 +193,9 @@ export const TransactionList = () => {
         if (startDate) query = query.gte('date', startDate)
         if (endDate) query = query.lte('date', endDate)
 
-        if (filterCategoryId) {
-          query = query.eq('category_id', filterCategoryId)
-        }
-
-        if (searchDescription.trim()) {
+        if (filterCategoryId) query = query.eq('category_id', filterCategoryId)
+        if (searchDescription.trim())
           query = query.ilike('description', `%${searchDescription.trim()}%`)
-        }
 
         const { data, error } = await query
         if (error) throw error
@@ -140,7 +218,7 @@ export const TransactionList = () => {
       window.removeEventListener('transactions-changed', handleUpdate)
   }, [dateRange.from, dateRange.to, filterCategoryId, searchDescription])
 
-  // 4. Подгрузка более старых транзакций
+  // 6. Подгрузка более старых транзакций
   const handleLoadMore = async () => {
     if (transactions.length === 0) return
     setIsLoadingMore(true)
@@ -207,6 +285,16 @@ export const TransactionList = () => {
     setSearchDescription('')
   }
 
+  // Объединяем локальные и серверные транзакции для отображения
+  const displayTransactions: LocalTransaction[] = [
+    ...pendingTransactions,
+    ...transactions.filter(
+      t => !pendingTransactions.some(p => p.tempId === t.id)
+    ),
+  ]
+
+  const isFiltered = filterCategoryId !== '' || searchDescription.trim() !== ''
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -222,8 +310,6 @@ export const TransactionList = () => {
       </Alert>
     )
   }
-
-  const isFiltered = filterCategoryId !== '' || searchDescription.trim() !== ''
 
   return (
     <Box
@@ -244,7 +330,7 @@ export const TransactionList = () => {
           flexDirection: 'column',
         }}
       >
-        {/* 👇 ПАНЕЛЬ ФИЛЬТРОВ С AUTOCOMPLETE */}
+        {/* ПАНЕЛЬ ФИЛЬТРОВ */}
         <Paper
           sx={{
             p: 2,
@@ -314,16 +400,14 @@ export const TransactionList = () => {
               size="small"
               onClick={handleClearFilters}
               startIcon={<Clear />}
-              sx={{
-                width: { xs: '100%', sm: 'auto' },
-                minWidth: { sm: 140 },
-              }}
+              sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 140 } }}
             >
               Сбросить
             </Button>
           )}
         </Paper>
 
+        {/* СПИСОК ТРАНЗАКЦИЙ */}
         <List
           sx={{
             maxHeight: { xs: 300, md: 1000 },
@@ -334,7 +418,7 @@ export const TransactionList = () => {
             alignItems: 'flex-start',
           }}
         >
-          {transactions.length === 0 && (
+          {displayTransactions.length === 0 && (
             <Typography color="text.secondary" sx={{ p: 2 }}>
               {isFiltered
                 ? 'Транзакции не найдены по заданным фильтрам.'
@@ -342,12 +426,18 @@ export const TransactionList = () => {
             </Typography>
           )}
 
-          {transactions.map(item => {
-            const categoryName = getCategoryName(item)
+          {displayTransactions.map(item => {
+            const categoryName = item.isPending
+              ? (item as LocalTransaction).category_name ||
+                'Неизвестная категория'
+              : getCategoryName(item)
+            const isPending = item.isPending
+            const itemId = item.tempId || item.id
+
             return (
               <Paper
-                key={item.id}
-                onMouseEnter={() => setIsHovered(item.id)}
+                key={itemId}
+                onMouseEnter={() => setIsHovered(itemId)}
                 onMouseLeave={() => setIsHovered(null)}
                 component={Box}
                 sx={{
@@ -359,13 +449,16 @@ export const TransactionList = () => {
                   borderRadius: 2,
                   boxShadow: 1,
                   bgcolor: 'background.paper',
+                  // Визуальные отличия для оффлайн-транзакций
+                  opacity: isPending ? 0.7 : 1,
+                  borderLeft: isPending ? '4px solid #FF9800' : 'none',
                   transition:
                     'box-shadow 0.2s ease, transform 0.1s ease, background-color 0.2s ease',
                   '&:hover': {
                     boxShadow: 3,
                     transform: 'translateY(-1px)',
-                    bgcolor: 'grey.800',
-                    color: 'white',
+                    bgcolor: isPending ? 'background.paper' : 'grey.800',
+                    color: isPending ? 'inherit' : 'white',
                   },
                   width: '100%',
                   boxSizing: 'border-box',
@@ -380,6 +473,21 @@ export const TransactionList = () => {
                     width: '100%',
                   }}
                 >
+                  {/* Иконка статуса синхронизации */}
+                  {isPending ? (
+                    <CloudOff
+                      fontSize="small"
+                      sx={{ color: 'warning.main', mr: 0.5 }}
+                      titleAccess="Ожидает синхронизации"
+                    />
+                  ) : (
+                    <CheckCircle
+                      fontSize="small"
+                      sx={{ color: 'success.main', mr: 0.5, opacity: 0 }}
+                      titleAccess="Синхронизировано"
+                    />
+                  )}
+
                   <Typography
                     variant="body2"
                     sx={{
@@ -404,7 +512,7 @@ export const TransactionList = () => {
                     fontWeight="bold"
                     sx={{ color: 'inherit' }}
                   >
-                    {item.amount.toLocaleString('ru-RU')} ₽
+                    {Number(item.amount).toLocaleString('ru-RU')} ₽
                   </Typography>
 
                   {item.description && (
@@ -431,40 +539,26 @@ export const TransactionList = () => {
                     })}
                   </Typography>
 
-                  <IconButton
-                    size="small"
-                    onClick={() => setEditingTx(item)}
-                    title="Изменить"
-                    sx={{
-                      color: 'white',
-                      opacity: isHovered === item.id ? 1 : 0,
-                      visibility: isHovered === item.id ? 'visible' : 'hidden',
-                      transition: 'opacity 0.2s ease',
-                    }}
-                  >
-                    <Edit fontSize="small" />
-                  </IconButton>
-
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDelete(item.id)}
-                    title="Удалить"
-                    sx={{
-                      color: 'white',
-                      opacity: isHovered === item.id ? 1 : 0,
-                      visibility: isHovered === item.id ? 'visible' : 'hidden',
-                      transition: 'opacity 0.2s ease',
-                    }}
-                  >
-                    <Close fontSize="small" />
-                  </IconButton>
+                  {/* Кнопки действий (скрыты для оффлайн-записей) */}
+                  {!isPending && (
+                    <>
+                      <EditButton
+                        onClick={() => setEditingTx(item as Transaction)}
+                        isVisible={isHovered === itemId}
+                      />
+                      <DeleteButton
+                        onClick={() => handleDelete(item.id)}
+                        isVisible={isHovered === itemId}
+                      />
+                    </>
+                  )}
                 </Box>
               </Paper>
             )
           })}
         </List>
 
-        {hasMore && transactions.length > 0 && (
+        {hasMore && displayTransactions.length > 0 && (
           <Box
             sx={{
               display: 'flex',
@@ -488,6 +582,7 @@ export const TransactionList = () => {
         )}
       </Box>
 
+      {/* ГРАФИКИ */}
       <Box
         sx={{
           display: 'flex',
@@ -497,10 +592,17 @@ export const TransactionList = () => {
           minWidth: '250px',
         }}
       >
-        <RadialTransactionChart transactions={transactions} type="expense" />
-        <RadialTransactionChart transactions={transactions} type="income" />
+        <RadialTransactionChart
+          transactions={displayTransactions as Transaction[]}
+          type="expense"
+        />
+        <RadialTransactionChart
+          transactions={displayTransactions as Transaction[]}
+          type="income"
+        />
       </Box>
 
+      {/* ДИАЛОГ РЕДАКТИРОВАНИЯ */}
       <Dialog
         open={!!editingTx}
         onClose={() => setEditingTx(null)}

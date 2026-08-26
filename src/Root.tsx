@@ -5,6 +5,7 @@ import { DateFilterProvider } from './context/DateFilterContext'
 
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { NetworkBanner } from './components/molecules/NetworkBanner'
 
 export const Root = () => {
   const { theme } = useTheme()
@@ -13,9 +14,10 @@ export const Root = () => {
     <ThemeProvider theme={theme}>
       <DateFilterProvider>
         <BrowserRouter
-          key={typeof window === 'undefined' ? 'server' : 'client'}
+          // key={typeof window === 'undefined' ? 'server' : 'client'}
         >
           <CssBaseline />
+          <NetworkBanner />
           <App />
         </BrowserRouter>
       </DateFilterProvider>

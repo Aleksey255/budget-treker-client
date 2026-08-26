@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import {
   Box,
   Button,
-  IconButton,
   List,
   Paper,
   TextField,
@@ -18,14 +17,11 @@ import {
   Snackbar,
   Divider,
 } from '@mui/material'
-import {
-  Close,
-  Edit,
-  Category as CategoryIcon,
-  AddCircleOutline,
-} from '@mui/icons-material'
+import { Category as CategoryIcon, AddCircleOutline } from '@mui/icons-material'
 import { CustomModal } from '../molecules/CustomModal'
 import { supabase } from '@/lib/supabaseClient'
+import { EditButton } from '../atoms/EditButton'
+import { DeleteButton } from '../atoms/DeleteButton'
 
 interface Category {
   id: string
@@ -151,7 +147,7 @@ export const CategoryList = () => {
           })
           .eq('id', editCategory.id)
 
-         if (error) {
+        if (error) {
           console.error('❌ Детальная ошибка Supabase:', error) // <-- ДОБАВЛЕНО
           throw error
         }
@@ -386,7 +382,15 @@ export const CategoryList = () => {
                   {getTypeChip(item.type)}
 
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <IconButton
+                    <EditButton
+                      onClick={() => handleOpenEdit(item)}
+                      isVisible={isHovered === item.id}
+                    />
+                    <DeleteButton
+                      onClick={() => handleDelete(item.id)}
+                      isVisible={isHovered === item.id}
+                    />
+                    {/* <IconButton
                       size="small"
                       onClick={() => handleOpenEdit(item)} // 👇 Передаем весь объект item
                       title="Изменить"
@@ -417,7 +421,7 @@ export const CategoryList = () => {
                       }}
                     >
                       <Close fontSize="small" />
-                    </IconButton>
+                    </IconButton> */}
                   </Box>
                 </Box>
               </Paper>
