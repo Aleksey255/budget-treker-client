@@ -14,6 +14,10 @@ import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { ru } from 'date-fns/locale'
 import { type Transaction } from '@/types/transaction'
+import {
+  savePendingTransaction,
+  type LocalTransaction,
+} from '@/utils/offlineStorage'
 
 interface Category {
   id: string
@@ -56,33 +60,56 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: catData, error: catError } = await supabase
-          .from('categories')
-          .select('id, name, type')
-          .order('name')
-        if (catError) throw catError
-        setCategories(catData || [])
+        // 1. Инициализируем массивы из кэша (гарантирует работу оффлайн)
+        const cachedCategories = localStorage.getItem('cached_categories')
+        if (cachedCategories) {
+          setCategories(JSON.parse(cachedCategories))
+        }
 
-        const { data: descData } = await supabase
-          .from('transactions')
-          .select('description')
-          .not('description', 'is', null)
-          .neq('description', '')
-          .order('date', { ascending: false })
-          .limit(100)
+        const cachedDescriptions = localStorage.getItem('cached_descriptions')
+        if (cachedDescriptions) {
+          setDescriptionOptions(JSON.parse(cachedDescriptions))
+        }
 
-        if (descData) {
-          const uniqueDescriptions = [
-            ...new Set(descData.map(t => t.description).filter(Boolean)),
-          ]
-          setDescriptionOptions(uniqueDescriptions as string[])
+        // 2. Если есть интернет, обновляем данные и кэш
+        if (navigator.onLine) {
+          const { data: catData, error: catError } = await supabase
+            .from('categories')
+            .select('id, name, type')
+            .order('name')
+
+          if (!catError && catData) {
+            setCategories(catData)
+            localStorage.setItem('cached_categories', JSON.stringify(catData))
+          }
+
+          const { data: descData } = await supabase
+            .from('transactions')
+            .select('description')
+            .not('description', 'is', null)
+            .neq('description', '')
+            .order('date', { ascending: false })
+            .limit(100)
+
+          if (descData) {
+            const uniqueDescriptions = [
+              ...new Set(descData.map(t => t.description).filter(Boolean)),
+            ] as string[]
+
+            setDescriptionOptions(uniqueDescriptions)
+            localStorage.setItem(
+              'cached_descriptions',
+              JSON.stringify(uniqueDescriptions)
+            )
+          }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Ошибка загрузки данных')
+        console.error('Ошибка загрузки данных:', err)
       } finally {
         setIsLoading(false)
       }
     }
+
     fetchData()
   }, [])
 
@@ -103,10 +130,17 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
     try {
       const {
-        data: { user },
+        data: { session },
         error: authError,
-      } = await supabase.auth.getUser()
-      if (authError || !user) throw new Error('Пользователь не авторизован')
+      } = await supabase.auth.getSession()
+
+      if (authError || !session?.user) {
+        throw new Error(
+          'Пользователь не авторизован. Пожалуйста, войдите в систему при наличии интернета.'
+        )
+      }
+
+      const user = session.user
 
       const amountNum = parseFloat(newTransaction.amount)
       if (
@@ -126,16 +160,77 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         date: newTransaction.date.toISOString(),
       }
 
+      // ПРОВЕРКА: МЫ ОФФЛАЙН?
+      if (!navigator.onLine) {
+        const tempId = editData?.id?.startsWith('temp-')
+          ? editData.id
+          : `temp-${Date.now()}`
+
+        // 👇 НАХОДИМ НАЗВАНИЕ КАТЕГОРИИ
+        const selectedCategory = categories.find(
+          cat => cat.id === newTransaction.categoryId
+        )
+        const categoryName = selectedCategory?.name || 'Неизвестная категория'
+
+        const localTx: LocalTransaction = {
+          ...payload,
+          id: tempId,
+          tempId: tempId,
+          user_id: user.id,
+          isPending: true,
+          category_name: categoryName,
+        }
+
+        // Если редактируем существующую оффлайн-транзакцию, удаляем старую версию
+        if (editData?.id?.startsWith('temp-')) {
+          const pending = JSON.parse(
+            localStorage.getItem('pending_transactions') || '[]'
+          ) as LocalTransaction[]
+          const filtered = pending.filter(
+            (t: LocalTransaction) => t.id !== editData.id
+          )
+          localStorage.setItem('pending_transactions', JSON.stringify(filtered))
+        }
+
+        savePendingTransaction(localTx)
+
+        // сообщаем списку, что появились новые локальные данные
+        window.dispatchEvent(new CustomEvent('pending-updated'))
+
+        onClose()
+        return
+      }
+
+      // МЫ ОНЛАЙН: обычная работа с Supabase
       let error
+
       if (editData) {
-        // РЕЖИМ РЕДАКТИРОВАНИЯ
-        const res = await supabase
-          .from('transactions')
-          .update(payload)
-          .eq('id', editData.id)
-        error = res.error
+        // Если редактируем транзакцию, которая БЫЛА оффлайн
+        if (editData.id.startsWith('temp-')) {
+          const pending = JSON.parse(
+            localStorage.getItem('pending_transactions') || '[]'
+          ) as LocalTransaction[]
+          localStorage.setItem(
+            'pending_transactions',
+            JSON.stringify(
+              pending.filter((t: LocalTransaction) => t.id !== editData.id)
+            )
+          )
+
+          const res = await supabase
+            .from('transactions')
+            .insert({ ...payload, user_id: user.id })
+          error = res.error
+        } else {
+          // Обычное редактирование на сервере
+          const res = await supabase
+            .from('transactions')
+            .update(payload)
+            .eq('id', editData.id)
+          error = res.error
+        }
       } else {
-        // РЕЖИМ СОЗДАНИЯ
+        // Обычное создание на сервере
         const res = await supabase
           .from('transactions')
           .insert({ ...payload, user_id: user.id })
@@ -190,11 +285,12 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
       <CustomSelect
         sx={{ width: { xs: '100%', sm: 246 } }}
-        label="Категория"
+        label="Категория *"
         name="categoryId"
         value={newTransaction.categoryId}
         onChange={selectCategory}
         disabled={isLoading}
+        required
       >
         <MenuItem value="">— Выберите —</MenuItem>
         {categories.map(cat => (
@@ -211,7 +307,7 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
       <TextField
         sx={{ width: { xs: '100%', sm: 246 } }}
-        label="Сумма"
+        label="Сумма *"
         variant="outlined"
         type="text"
         value={newTransaction.amount}
@@ -232,16 +328,22 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
       <Autocomplete
         freeSolo
         options={descriptionOptions}
-        value={newTransaction.description}
+        value={newTransaction.description || ''}
         onInputChange={(_event, newInputValue) =>
           setNewTransaction({ ...newTransaction, description: newInputValue })
         }
+        noOptionsText="Нет сохраненных описаний"
         sx={{ width: { xs: '100%', sm: 246 } }}
         renderInput={params => (
           <TextField
             {...params}
             label="Описание"
             variant="outlined"
+            helperText={
+              descriptionOptions.length === 0 && !navigator.onLine
+                ? 'Автокомплит недоступен без интернета'
+                : ''
+            }
           />
         )}
       />
