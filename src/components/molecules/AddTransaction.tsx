@@ -160,16 +160,13 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         date: newTransaction.date.toISOString(),
       }
 
-      // ПРОВЕРКА: МЫ ОФФЛАЙН?
+            // ПРОВЕРКА: МЫ ОФФЛАЙН?
       if (!navigator.onLine) {
         const tempId = editData?.id?.startsWith('temp-')
           ? editData.id
           : `temp-${Date.now()}`
 
-        // 👇 НАХОДИМ НАЗВАНИЕ КАТЕГОРИИ
-        const selectedCategory = categories.find(
-          cat => cat.id === newTransaction.categoryId
-        )
+        const selectedCategory = categories.find(cat => cat.id === newTransaction.categoryId)
         const categoryName = selectedCategory?.name || 'Неизвестная категория'
 
         const localTx: LocalTransaction = {
@@ -181,64 +178,42 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
           category_name: categoryName,
         }
 
-        // Если редактируем существующую оффлайн-транзакцию, удаляем старую версию
         if (editData?.id?.startsWith('temp-')) {
-          const pending = JSON.parse(
-            localStorage.getItem('pending_transactions') || '[]'
-          ) as LocalTransaction[]
-          const filtered = pending.filter(
-            (t: LocalTransaction) => t.id !== editData.id
-          )
+          const pending = JSON.parse(localStorage.getItem('pending_transactions') || '[]') as LocalTransaction[]
+          const filtered = pending.filter((t: LocalTransaction) => t.id !== editData.id)
           localStorage.setItem('pending_transactions', JSON.stringify(filtered))
         }
 
         savePendingTransaction(localTx)
 
-        // сообщаем списку, что появились новые локальные данные
+        // 👇 КРИТИЧЕСКИ ВАЖНО: Сообщаем списку, что появились новые локальные данные
         window.dispatchEvent(new CustomEvent('pending-updated'))
 
         onClose()
-        return
+        return // Прерываем выполнение, в Supabase не стучимся
       }
 
       // МЫ ОНЛАЙН: обычная работа с Supabase
       let error
-
       if (editData) {
-        // Если редактируем транзакцию, которая БЫЛА оффлайн
         if (editData.id.startsWith('temp-')) {
-          const pending = JSON.parse(
-            localStorage.getItem('pending_transactions') || '[]'
-          ) as LocalTransaction[]
-          localStorage.setItem(
-            'pending_transactions',
-            JSON.stringify(
-              pending.filter((t: LocalTransaction) => t.id !== editData.id)
-            )
-          )
+          const pending = JSON.parse(localStorage.getItem('pending_transactions') || '[]') as LocalTransaction[]
+          localStorage.setItem('pending_transactions', JSON.stringify(pending.filter((t: LocalTransaction) => t.id !== editData.id)))
 
-          const res = await supabase
-            .from('transactions')
-            .insert({ ...payload, user_id: user.id })
+          const res = await supabase.from('transactions').insert({ ...payload, user_id: user.id })
           error = res.error
         } else {
-          // Обычное редактирование на сервере
-          const res = await supabase
-            .from('transactions')
-            .update(payload)
-            .eq('id', editData.id)
+          const res = await supabase.from('transactions').update(payload).eq('id', editData.id)
           error = res.error
         }
       } else {
-        // Обычное создание на сервере
-        const res = await supabase
-          .from('transactions')
-          .insert({ ...payload, user_id: user.id })
+        const res = await supabase.from('transactions').insert({ ...payload, user_id: user.id })
         error = res.error
       }
 
       if (error) throw error
 
+      // 👇 КРИТИЧЕСКИ ВАЖНО: Сообщаем списку обновить данные с сервера
       window.dispatchEvent(new Event('transactions-changed'))
       onClose()
     } catch (err) {

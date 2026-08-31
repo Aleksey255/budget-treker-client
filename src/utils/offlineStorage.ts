@@ -9,7 +9,18 @@ export interface LocalTransaction extends Transaction {
   category_name?: string
 }
 
+interface CachedFilters {
+  filterCategoryId: string
+  searchDescription: string
+  dateRange: {
+    from: Date | null
+    to: Date | null
+  }
+}
+
 const PENDING_KEY = 'pending_transactions'
+const CACHED_TX_KEY = 'cached_transactions'
+const CACHED_FILTERS_KEY = 'cached_filters'
 
 export const getPendingTransactions = (): LocalTransaction[] => {
   const stored = localStorage.getItem(PENDING_KEY)
@@ -24,4 +35,22 @@ export const savePendingTransaction = (tx: LocalTransaction) => {
 
 export const clearPendingTransactions = () => {
   localStorage.removeItem(PENDING_KEY)
+}
+
+export const getCachedTransactions = (): Transaction[] => {
+  const stored = localStorage.getItem(CACHED_TX_KEY)
+  return stored ? JSON.parse(stored) : []
+}
+
+export const setCachedTransactions = (transactions: Transaction[]) => {
+  localStorage.setItem(CACHED_TX_KEY, JSON.stringify(transactions))
+}
+
+export const getCachedFilters = (): CachedFilters | null => {
+  const stored = localStorage.getItem(CACHED_FILTERS_KEY)
+  return stored ? JSON.parse(stored) : null
+}
+
+export const setCachedFilters = (filters: CachedFilters) => {
+  localStorage.setItem(CACHED_FILTERS_KEY, JSON.stringify(filters))
 }

@@ -16,12 +16,7 @@ import {
   DialogContent,
   InputAdornment,
 } from '@mui/material'
-import {
-  Search,
-  Clear,
-  CloudOff,
-  CheckCircle,
-} from '@mui/icons-material'
+import { Search, Clear, CloudOff, CheckCircle } from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { RadialTransactionChart } from '../molecules/RadialTransactionChart'
@@ -31,6 +26,10 @@ import { AddTransaction } from '../molecules/AddTransaction'
 import {
   getPendingTransactions,
   clearPendingTransactions,
+  getCachedTransactions,
+  setCachedTransactions,
+  getCachedFilters,
+  setCachedFilters,
   type LocalTransaction,
 } from '@/utils/offlineStorage'
 import { EditButton } from '../atoms/EditButton'
@@ -57,9 +56,16 @@ export const TransactionList = () => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 
   // Фильтры
-  const [filterCategoryId, setFilterCategoryId] = useState<string>('')
-  const [inputDescription, setInputDescription] = useState<string>('')
-  const [searchDescription, setSearchDescription] = useState<string>('')
+  const cachedFilters = getCachedFilters()
+  const [filterCategoryId, setFilterCategoryId] = useState<string>(
+    cachedFilters?.filterCategoryId || ''
+  )
+  const [inputDescription, setInputDescription] = useState<string>(
+    cachedFilters?.searchDescription || ''
+  )
+  const [searchDescription, setSearchDescription] = useState<string>(
+    cachedFilters?.searchDescription || ''
+  )
 
   // Оффлайн-транзакции
   const [pendingTransactions, setPendingTransactions] = useState<
@@ -82,6 +88,18 @@ export const TransactionList = () => {
       window.removeEventListener('pending-updated', handlePendingUpdate)
     }
   }, [])
+
+  // Сохраняем фильтры в кэш при каждом изменении
+  useEffect(() => {
+    setCachedFilters({
+      filterCategoryId,
+      searchDescription,
+      dateRange: {
+        from: dateRange.from,
+        to: dateRange.to,
+      },
+    })
+  }, [filterCategoryId, searchDescription, dateRange.from, dateRange.to])
 
   // 1. Загрузка локальных транзакций при монтировании
   useEffect(() => {
@@ -167,15 +185,18 @@ export const TransactionList = () => {
     return () => clearTimeout(timer)
   }, [inputDescription])
 
-  // 5. Загрузка транзакций при изменении дат или фильтров
+  // 3. Загрузка транзакций (Исправленная Offline-First стратегия)
   useEffect(() => {
     const fetchTransactions = async () => {
-      // Если нет интернета, не пытаемся загружать с сервера
+      // 1. ЕСЛИ ОФФЛАЙН: берем только из кэша и сразу выходим
       if (!navigator.onLine) {
+        const cachedData = getCachedTransactions()
+        setTransactions(cachedData)
         setIsLoading(false)
         return
       }
 
+      // 2. ЕСЛИ ОНЛАЙН: загружаем с сервера
       try {
         setIsLoading(true)
         setError(null)
@@ -200,11 +221,22 @@ export const TransactionList = () => {
         const { data, error } = await query
         if (error) throw error
 
-        setTransactions((data as Transaction[]) || [])
+        const freshData = (data as Transaction[]) || []
+        setTransactions(freshData)
+        setCachedTransactions(freshData) // Обновляем кэш только после успешной загрузки
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Ошибка загрузки транзакций'
-        setError(message)
+        console.error(message, err)
+
+        // Fallback: если сеть упала во время загрузки, показываем кэш, чтобы не был пустой экран
+        const cachedData = getCachedTransactions()
+        if (cachedData.length > 0) {
+          setTransactions(cachedData)
+          setError(null)
+        } else {
+          setError(message)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -265,12 +297,20 @@ export const TransactionList = () => {
   const handleDelete = async (id: string) => {
     const previousTransactions = [...transactions]
     setTransactions(prev => prev.filter(tx => tx.id !== id))
+
     try {
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', id)
       if (error) throw error
+
+      //  ОБНОВЛЯЕМ КЭШ ПОСЛЕ УСПЕШНОГО УДАЛЕНИЯ
+      const updatedCache = previousTransactions.filter(tx => tx.id !== id)
+      setCachedTransactions(updatedCache)
+
+      // 👇 СООБЩАЕМ BALANCE ОБ ИЗМЕНЕНИЯХ
+      window.dispatchEvent(new Event('transactions-changed'))
     } catch (err) {
       setTransactions(previousTransactions)
       alert(
