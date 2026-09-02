@@ -15,6 +15,7 @@ import { useDateFilter, formatDateForQuery } from '@/context/DateFilterContext'
 import {
   getCachedTransactions,
   getPendingTransactions,
+  withTimeout,
 } from '@/utils/offlineStorage'
 
 export const Balance = () => {
@@ -60,14 +61,16 @@ export const Balance = () => {
     setIncomeTotal(income)
     setExpenseTotal(expense)
 
-    // 4. Если есть интернет — уточняем данные с сервера
+    // 4. Если есть интернет — уточняем данные с сервера (с таймаутом)
     if (navigator.onLine) {
       try {
         let query = supabase.from('transactions').select('amount, type')
         if (startDate) query = query.gte('date', startDate)
         if (endDate) query = query.lte('date', endDate)
 
-        const { data, error: fetchError } = await query
+        // 👇 ДОБАВЛЕН ТАЙМАУТ 3 СЕКУНДЫ
+        const { data, error: fetchError } = await withTimeout(query, 3000)
+
         if (fetchError) throw fetchError
 
         let serverIncome = 0
@@ -84,7 +87,10 @@ export const Balance = () => {
         setIncomeTotal(serverIncome)
         setExpenseTotal(serverExpense)
       } catch (err) {
-        console.error('Ошибка загрузки отчёта:', err)
+        // Тихо игнорируем таймауты и ошибки сети, оставляем расчет из кэша
+        if (err instanceof Error && err.message !== 'timeout') {
+          console.error('Ошибка загрузки отчёта:', err)
+        }
       }
     }
 
