@@ -24,7 +24,7 @@ const CACHED_FILTERS_KEY = 'cached_filters'
 
 export const getPendingTransactions = (): LocalTransaction[] => {
   const stored = localStorage.getItem(PENDING_KEY)
-  return stored ? JSON.parse(stored) : []
+  return stored ? (JSON.parse(stored) as LocalTransaction[]) : []
 }
 
 export const savePendingTransaction = (tx: LocalTransaction) => {
@@ -39,7 +39,7 @@ export const clearPendingTransactions = () => {
 
 export const getCachedTransactions = (): Transaction[] => {
   const stored = localStorage.getItem(CACHED_TX_KEY)
-  return stored ? JSON.parse(stored) : []
+  return stored ? (JSON.parse(stored) as Transaction[]) : []
 }
 
 export const setCachedTransactions = (transactions: Transaction[]) => {
@@ -48,9 +48,17 @@ export const setCachedTransactions = (transactions: Transaction[]) => {
 
 export const getCachedFilters = (): CachedFilters | null => {
   const stored = localStorage.getItem(CACHED_FILTERS_KEY)
-  return stored ? JSON.parse(stored) : null
+  return stored ? (JSON.parse(stored) as CachedFilters) : null
 }
 
 export const setCachedFilters = (filters: CachedFilters) => {
   localStorage.setItem(CACHED_FILTERS_KEY, JSON.stringify(filters))
+}
+
+// Обертка, которая отменяет промис, если он выполняется дольше указанного времени
+export const withTimeout = <T>(promise: PromiseLike<T>, ms: number): Promise<T> => {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), ms)
+  )
+  return Promise.race([promise, timeout])
 }

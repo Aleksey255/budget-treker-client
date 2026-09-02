@@ -20,7 +20,7 @@ import { Search, Clear, CloudOff, CheckCircle } from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { RadialTransactionChart } from '../molecules/RadialTransactionChart'
-import { getCategoryName, type Transaction } from '@/types/transaction'
+import { getCategoryName, type Transaction, type TxResponse } from '@/types/transaction'
 import { useDateFilter, formatDateForQuery } from '@/context/DateFilterContext'
 import { AddTransaction } from '../molecules/AddTransaction'
 import {
@@ -30,6 +30,7 @@ import {
   setCachedTransactions,
   getCachedFilters,
   setCachedFilters,
+  withTimeout,
   type LocalTransaction,
 } from '@/utils/offlineStorage'
 import { EditButton } from '../atoms/EditButton'
@@ -188,17 +189,21 @@ export const TransactionList = () => {
   // 3. Загрузка транзакций (Исправленная Offline-First стратегия)
   useEffect(() => {
     const fetchTransactions = async () => {
-      // 1. ЕСЛИ ОФФЛАЙН: берем только из кэша и сразу выходим
-      if (!navigator.onLine) {
-        const cachedData = getCachedTransactions()
+      const cachedData = getCachedTransactions()
+
+      // 1. МГНОВЕННО показываем кэш, если он есть. Спиннер не нужен!
+      if (cachedData.length > 0) {
         setTransactions(cachedData)
         setIsLoading(false)
-        return
+      } else {
+        setIsLoading(true) // Спиннер только если кэш абсолютно пуст
       }
 
-      // 2. ЕСЛИ ОНЛАЙН: загружаем с сервера
+      // 2. Если интернета нет, выходим
+      if (!navigator.onLine) return
+
+      // 3. Пытаемся получить свежие данные, но не дольше 3500 мс
       try {
-        setIsLoading(true)
         setError(null)
         setHasMore(true)
 
@@ -218,24 +223,18 @@ export const TransactionList = () => {
         if (searchDescription.trim())
           query = query.ilike('description', `%${searchDescription.trim()}%`)
 
-        const { data, error } = await query
+        // 👇 ДОБАВЛЕН ТАЙМАУТ 3.5 СЕКУНДЫ
+        const { data, error } = await withTimeout<TxResponse>(query, 3500)
+
         if (error) throw error
 
         const freshData = (data as Transaction[]) || []
         setTransactions(freshData)
-        setCachedTransactions(freshData) // Обновляем кэш только после успешной загрузки
+        setCachedTransactions(freshData)
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Ошибка загрузки транзакций'
-        console.error(message, err)
-
-        // Fallback: если сеть упала во время загрузки, показываем кэш, чтобы не был пустой экран
-        const cachedData = getCachedTransactions()
-        if (cachedData.length > 0) {
-          setTransactions(cachedData)
-          setError(null)
-        } else {
-          setError(message)
+        // Если это таймаут или ошибка сети, мы просто молча оставляем кэш на экране
+        if (err instanceof Error && err.message !== 'timeout') {
+          console.error('Ошибка загрузки:', err)
         }
       } finally {
         setIsLoading(false)

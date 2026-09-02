@@ -9,6 +9,11 @@ export interface Transaction {
   categories?: { name: string } | { name: string }[] | null
 }
 
+export type TxResponse = {
+  data: Transaction[] | null
+  error: { message: string } | null
+}
+
 export const getCategoryName = (tx: Transaction): string => {
   if (!tx.categories) return 'Без категории'
 
