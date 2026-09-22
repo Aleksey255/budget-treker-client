@@ -11,11 +11,11 @@ import MenuIcon from '@mui/icons-material/Menu'
 import { useTheme } from './context/ThemeContext'
 import { CategoryPage } from './pages/CategoryPage'
 import { DashboardPage } from './pages/DashboardPage'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Sidebar } from './components/molecules/Sidebar'
 import { darkTheme } from './styles/theme/darkTheme'
-import { supabase } from './lib/supabaseClient' // Убедитесь, что путь правильный
+import { supabase } from './lib/supabaseClient'
 
 // Ваши оригинальные компоненты авторизации
 import { Login } from './components/organisms/Login'
@@ -27,14 +27,13 @@ import { SettingsPage } from './pages/SettingsPage'
 function App() {
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const navigate = useNavigate()
 
   // Состояние аутентификации и загрузки
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // 1. Проверяем текущую сессию при первой загрузке
+    // 1. СРАЗУ читаем сессию из localStorage (работает оффлайн!)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session)
       setIsLoading(false)
@@ -44,23 +43,19 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Просто обновляем флаг. Не делаем navigate() здесь!
       setIsAuthenticated(!!session)
-
-      // Если сессия пропала (например, выход в другой вкладке), перенаправляем на логин
-      if (!session) {
-        navigate('/login', { replace: true })
-      }
     })
 
     // Очистка подписки при размонтировании
     return () => subscription.unsubscribe()
-  }, [navigate])
+  }, []) // Убрали navigate из зависимостей
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev)
   }
 
-  // Показываем загрузку, пока Supabase проверяет сессию
+  // Показываем загрузку, пока читаем localStorage
   if (isLoading) {
     return (
       <Box
@@ -121,16 +116,18 @@ function App() {
             <>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/categories" element={<CategoryPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
+              {/* Если авторизован, но попал на неизвестный путь -> на главную */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
-            // 🔓 Публичные маршруты (используем ваши оригинальные компоненты)
+            // 🔓 Публичные маршруты
             <>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Если НЕ авторизован, но попал на любой другой путь -> на логин */}
               <Route path="*" element={<Navigate to="/login" replace />} />
             </>
           )}

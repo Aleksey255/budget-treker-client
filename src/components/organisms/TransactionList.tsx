@@ -115,9 +115,11 @@ export const TransactionList = () => {
 
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) return
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session?.user) return
+
+        const user = session.user
 
         const txsToSend = pending.map(tx => ({
           type: tx.type,
