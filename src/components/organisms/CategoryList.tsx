@@ -110,10 +110,15 @@ export const CategoryList = () => {
 
     try {
       const {
-        data: { user },
+        data: { session },
         error: authError,
-      } = await supabase.auth.getUser()
-      if (authError || !user) throw new Error('Пользователь не авторизован.')
+      } = await supabase.auth.getSession()
+
+      if (authError || !session?.user) {
+        throw new Error('Пользователь не авторизован.')
+      }
+
+      const user = session.user
 
       const { data, error } = await supabase
         .from('categories')

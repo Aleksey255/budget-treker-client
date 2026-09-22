@@ -16,12 +16,7 @@ import {
   DialogContent,
   InputAdornment,
 } from '@mui/material'
-import {
-  Search,
-  Clear,
-  CloudOff,
-  CheckCircle,
-} from '@mui/icons-material'
+import { Search, Clear, CloudOff, CheckCircle } from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { RadialTransactionChart } from '../molecules/RadialTransactionChart'
@@ -96,9 +91,11 @@ export const TransactionList = () => {
 
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) return
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session?.user) return
+
+        const user = session.user
 
         const txsToSend = pending.map(tx => ({
           type: tx.type,
