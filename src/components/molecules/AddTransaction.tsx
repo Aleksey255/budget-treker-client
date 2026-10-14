@@ -57,6 +57,26 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
     }
   })
 
+  // Сбрасываем категорию, если она не подходит для выбранного типа
+  useEffect(() => {
+    if (!newTransaction.categoryId || !newTransaction.type) return
+
+    const selectedCategory = categories.find(
+      cat => cat.id === newTransaction.categoryId
+    )
+    if (!selectedCategory) return
+
+    const isValidForType =
+      newTransaction.type === 'income'
+        ? selectedCategory.type === 'income' || selectedCategory.type === 'both'
+        : selectedCategory.type === 'expense' ||
+          selectedCategory.type === 'both'
+
+    if (!isValidForType) {
+      setNewTransaction(prev => ({ ...prev, categoryId: '' }))
+    }
+  }, [newTransaction.type, newTransaction.categoryId, categories])
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -124,6 +144,18 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
     }
   }
 
+  // Сначала фильтруем категории в зависимости от выбранного типа
+  const filteredCategories = categories.filter(cat => {
+    if (!newTransaction.type) return true // Если тип не выбран, показываем все
+    if (newTransaction.type === 'income') {
+      return cat.type === 'income' || cat.type === 'both'
+    }
+    if (newTransaction.type === 'expense') {
+      return cat.type === 'expense' || cat.type === 'both'
+    }
+    return true
+  })
+
   const handleSubmit = async () => {
     setError(null)
     setIsSubmitting(true)
@@ -160,13 +192,15 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         date: newTransaction.date.toISOString(),
       }
 
-            // ПРОВЕРКА: МЫ ОФФЛАЙН?
+      // ПРОВЕРКА: МЫ ОФФЛАЙН?
       if (!navigator.onLine) {
         const tempId = editData?.id?.startsWith('temp-')
           ? editData.id
           : `temp-${Date.now()}`
 
-        const selectedCategory = categories.find(cat => cat.id === newTransaction.categoryId)
+        const selectedCategory = categories.find(
+          cat => cat.id === newTransaction.categoryId
+        )
         const categoryName = selectedCategory?.name || 'Неизвестная категория'
 
         const localTx: LocalTransaction = {
@@ -179,8 +213,12 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         }
 
         if (editData?.id?.startsWith('temp-')) {
-          const pending = JSON.parse(localStorage.getItem('pending_transactions') || '[]') as LocalTransaction[]
-          const filtered = pending.filter((t: LocalTransaction) => t.id !== editData.id)
+          const pending = JSON.parse(
+            localStorage.getItem('pending_transactions') || '[]'
+          ) as LocalTransaction[]
+          const filtered = pending.filter(
+            (t: LocalTransaction) => t.id !== editData.id
+          )
           localStorage.setItem('pending_transactions', JSON.stringify(filtered))
         }
 
@@ -197,17 +235,31 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
       let error
       if (editData) {
         if (editData.id.startsWith('temp-')) {
-          const pending = JSON.parse(localStorage.getItem('pending_transactions') || '[]') as LocalTransaction[]
-          localStorage.setItem('pending_transactions', JSON.stringify(pending.filter((t: LocalTransaction) => t.id !== editData.id)))
+          const pending = JSON.parse(
+            localStorage.getItem('pending_transactions') || '[]'
+          ) as LocalTransaction[]
+          localStorage.setItem(
+            'pending_transactions',
+            JSON.stringify(
+              pending.filter((t: LocalTransaction) => t.id !== editData.id)
+            )
+          )
 
-          const res = await supabase.from('transactions').insert({ ...payload, user_id: user.id })
+          const res = await supabase
+            .from('transactions')
+            .insert({ ...payload, user_id: user.id })
           error = res.error
         } else {
-          const res = await supabase.from('transactions').update(payload).eq('id', editData.id)
+          const res = await supabase
+            .from('transactions')
+            .update(payload)
+            .eq('id', editData.id)
           error = res.error
         }
       } else {
-        const res = await supabase.from('transactions').insert({ ...payload, user_id: user.id })
+        const res = await supabase
+          .from('transactions')
+          .insert({ ...payload, user_id: user.id })
         error = res.error
       }
 
@@ -267,17 +319,44 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         disabled={isLoading}
         required
       >
-        <MenuItem value="">— Выберите —</MenuItem>
-        {categories.map(cat => (
-          <MenuItem key={cat.id} value={cat.id}>
-            {cat.name}{' '}
-            {cat.type === 'both'
-              ? '(Универс.)'
-              : cat.type === 'income'
-                ? '(Доход)'
-                : '(Расход)'}
+        {isLoading ? (
+          <MenuItem value="" disabled>
+            Загрузка категорий...
           </MenuItem>
-        ))}
+        ) : (
+          ([
+            <MenuItem key="empty" value="">
+              — Выберите категорию —
+            </MenuItem>,
+
+            // Используем тернарный оператор, чтобы вернуть пустой массив вместо false
+            ...(newTransaction.categoryId &&
+            !filteredCategories.some(
+              cat => cat.id === newTransaction.categoryId
+            )
+              ? [
+                  <MenuItem
+                    key="fallback"
+                    value={newTransaction.categoryId}
+                    disabled
+                  >
+                    ⚠️ Не подходит для выбранного типа
+                  </MenuItem>,
+                ]
+              : []),
+
+            ...filteredCategories.map(cat => (
+              <MenuItem key={cat.id} value={cat.id}>
+                {cat.name}{' '}
+                {cat.type === 'both'
+                  ? '(Универс.)'
+                  : cat.type === 'income'
+                    ? '(Доход)'
+                    : '(Расход)'}
+              </MenuItem>
+            )),
+          ] as React.ReactNode)
+        )}
       </CustomSelect>
 
       <TextField
