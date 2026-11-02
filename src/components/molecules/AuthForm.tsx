@@ -65,29 +65,42 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
         if (newPassword !== confirmPassword)
           throw new Error('Пароли не совпадают')
 
-        const { error } = await supabase.auth.updateUser({
-          password: newPassword,
-        })
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Превышено время ожидания. Проверьте подключение к интернету.')), 10000)
+        )
+        const { error } = await Promise.race([
+          supabase.auth.updateUser({ password: newPassword }),
+          timeout
+        ])
         if (error) throw error
 
         alert('Пароль успешно изменён. Теперь вы можете войти.')
         navigate('/auth', { replace: true }) // Перенаправляем на чистый экран входа
       } else if (view === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Превышено время ожидания. Проверьте подключение к интернету.')), 10000)
+        )
+        const { error } = await Promise.race([
+          supabase.auth.signInWithPassword({ email, password }),
+          timeout
+        ])
         if (error) throw error
 
         navigate('/', { replace: true })
       } else if (view === 'register') {
         if (!name) throw new Error('Имя обязательно')
 
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: name } },
-        })
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Превышено время ожидания. Проверьте подключение к интернету.')), 10000)
+        )
+        const { error } = await Promise.race([
+          supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: name } },
+          }),
+          timeout
+        ])
         if (error) throw error
 
         alert('Регистрация успешна! Проверьте почту или попробуйте войти.')
@@ -95,9 +108,15 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
       } else if (view === 'forgotPassword') {
         if (!email) throw new Error('Email обязателен')
 
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth?reset=true`,
-        })
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Превышено время ожидания. Проверьте подключение к интернету.')), 10000)
+        )
+        const { error } = await Promise.race([
+          supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth?reset=true`,
+          }),
+          timeout
+        ])
         if (error) throw error
 
         alert('Ссылка для восстановления отправлена на ваш email')

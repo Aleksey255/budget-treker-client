@@ -34,10 +34,36 @@ function App() {
 
   useEffect(() => {
     // 1. СРАЗУ читаем сессию из localStorage (работает оффлайн!)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session)
-      setIsLoading(false)
-    })
+    // getSession() может долго ждать при плохом интернете — добавляем таймаут 3 сек
+    const sessionPromise = supabase.auth.getSession()
+    const timeoutPromise = new Promise<{ data: { session: null } }>((_, reject) =>
+      setTimeout(() => reject(new Error('getSession timeout')), 3000)
+    )
+
+    Promise.race([sessionPromise, timeoutPromise])
+      .then(({ data: { session } }) => {
+        setIsAuthenticated(!!session)
+        setIsLoading(false)
+      })
+      .catch(() => {
+        // При таймауте — читаем напрямую из localStorage
+        // Supabase v2 хранит токен в ключах вида sb-*-auth-token
+        let hasToken = false
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.includes('-auth-token') && key.includes('sb-')) {
+            try {
+              const stored = JSON.parse(localStorage.getItem(key) || '{}')
+              if (stored.access_token || stored.currentSession?.access_token) {
+                hasToken = true
+                break
+              }
+            } catch { /* ignore */ }
+          }
+        }
+        setIsAuthenticated(hasToken)
+        setIsLoading(false)
+      })
 
     // 2. Подписываемся на изменения состояния аутентификации
     const {

@@ -38,33 +38,15 @@ export const Balance = () => {
     const startDate = formatDateForQuery(dateRange.from, false)
     const endDate = formatDateForQuery(dateRange.to, true)
 
-    // 1. Берем кэшированные транзакции
-    const cachedTxs = getCachedTransactions()
-    // 2. Берем локальные (оффлайн) транзакции
+    // 1. Берем локальные (оффлайн) транзакции
     const pendingTxs = getPendingTransactions()
-    // 3. Объединяем их
-    const allTxs = [...pendingTxs, ...cachedTxs]
+    // 2. Если есть интернет — запрашиваем данные с сервера
+    let serverIncome = 0
+    let serverExpense = 0
 
-    let income = 0
-    let expense = 0
-
-    for (const tx of allTxs) {
-      const txDateStr = new Date(tx.date).toISOString()
-      if (startDate && txDateStr < startDate) continue
-      if (endDate && txDateStr > endDate) continue
-
-      const amount = Number(tx.amount)
-      if (tx.type === 'income') income += amount
-      else if (tx.type === 'expense') expense += amount
-    }
-
-    setIncomeTotal(income)
-    setExpenseTotal(expense)
-
-    // 4. Если есть интернет — уточняем данные с сервера (с таймаутом)
     if (navigator.onLine) {
       try {
-        let query = supabase.from('transactions').select('amount, type')
+        let query = supabase.from('transactions').select('amount, type, date')
         if (startDate) query = query.gte('date', startDate)
         if (endDate) query = query.lte('date', endDate)
 
@@ -73,25 +55,64 @@ export const Balance = () => {
 
         if (fetchError) throw fetchError
 
-        let serverIncome = 0
-        let serverExpense = 0
-
         if (data) {
+          // Собираем даты серверных транзакций, чтобы исключить дублирование с pending
+          const serverDates = new Set(
+            (data as any[]).map((tx: any) => tx.date)
+          )
+
           for (const tx of data) {
             const amount = Number(tx.amount)
             if (tx.type === 'income') serverIncome += amount
             else if (tx.type === 'expense') serverExpense += amount
           }
-        }
 
-        setIncomeTotal(serverIncome)
-        setExpenseTotal(serverExpense)
+          // Добавляем pending транзакции, которых НЕТ на сервере (по дате)
+          for (const tx of pendingTxs) {
+            const txDate = new Date(tx.date).toISOString().split('T')[0]
+            // Если дата pending транзакции уже есть на сервере — пропускаем
+            if (serverDates.has(txDate)) continue
+
+            const txDateStr = new Date(tx.date).toISOString()
+            if (startDate && txDateStr < startDate) continue
+            if (endDate && txDateStr > endDate) continue
+
+            const amount = Number(tx.amount)
+            if (tx.type === 'income') serverIncome += amount
+            else if (tx.type === 'expense') serverExpense += amount
+          }
+        }
       } catch (err) {
-        // Тихо игнорируем таймауты и ошибки сети, оставляем расчет из кэша
+        // Тихо игнорируем таймауты и ошибки сети
         if (err instanceof Error && err.message !== 'timeout') {
           console.error('Ошибка загрузки отчёта:', err)
         }
       }
+    }
+
+    // 3. Если нет интернета — считаем баланс из кэша + pending
+    if (!navigator.onLine) {
+      const cachedTxs = getCachedTransactions()
+      const allTxs = [...pendingTxs, ...cachedTxs]
+
+      let income = 0
+      let expense = 0
+
+      for (const tx of allTxs) {
+        const txDateStr = new Date(tx.date).toISOString()
+        if (startDate && txDateStr < startDate) continue
+        if (endDate && txDateStr > endDate) continue
+
+        const amount = Number(tx.amount)
+        if (tx.type === 'income') income += amount
+        else if (tx.type === 'expense') expense += amount
+      }
+
+      setIncomeTotal(income)
+      setExpenseTotal(expense)
+    } else {
+      setIncomeTotal(serverIncome)
+      setExpenseTotal(serverExpense)
     }
 
     setIsLoading(false)

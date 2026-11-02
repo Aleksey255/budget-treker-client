@@ -194,7 +194,8 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
       // ПРОВЕРКА: МЫ ОФФЛАЙН?
       if (!navigator.onLine) {
-        const tempId = editData?.id?.startsWith('temp-')
+        const isEditPending = editData?.id?.startsWith('temp-')
+        const tempId = isEditPending
           ? editData.id
           : `temp-${Date.now()}`
 
@@ -212,12 +213,13 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
           category_name: categoryName,
         }
 
-        if (editData?.id?.startsWith('temp-')) {
+        // Удаляем старую pending транзакцию (если редактируем)
+        if (editData?.id) {
           const pending = JSON.parse(
             localStorage.getItem('pending_transactions') || '[]'
           ) as LocalTransaction[]
           const filtered = pending.filter(
-            (t: LocalTransaction) => t.id !== editData.id
+            (t: LocalTransaction) => t.tempId !== editData.id && t.id !== editData.id
           )
           localStorage.setItem('pending_transactions', JSON.stringify(filtered))
         }
@@ -265,7 +267,25 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
       if (error) throw error
 
-      // 👇 КРИТИЧЕСКИ ВАЖНО: Сообщаем списку обновить данные с сервера
+      // 👇 КРИТИЧЕСКИ ВАЖНО: обновляем кэш напрямую, не вызывая повторный fetch
+      // который может затереть данные фильтром
+      const cached = JSON.parse(localStorage.getItem('cached_transactions') || '[]') as Transaction[]
+      // Добавляем новую или обновляем существующую
+      let updatedCache: Transaction[]
+      if (editData) {
+        updatedCache = cached.map(t => t.id === editData.id ? { ...t, ...payload } as Transaction : t)
+      } else {
+        // Создаём объект транзакции для кэша
+        const newTx: Transaction = {
+          id: `temp-${Date.now()}`, // ID будет заменён при след. fetch
+          ...payload,
+        } as Transaction
+        updatedCache = [newTx, ...cached]
+      }
+      localStorage.setItem('cached_transactions', JSON.stringify(updatedCache))
+
+      // 👇 Только теперь сообщаем об обновлении
+      console.log('📡 Dispatching transactions-changed event')
       window.dispatchEvent(new Event('transactions-changed'))
       onClose()
     } catch (err) {
