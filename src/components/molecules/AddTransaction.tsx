@@ -196,7 +196,7 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
       if (!navigator.onLine) {
         const isEditPending = editData?.id?.startsWith('temp-')
         const tempId = isEditPending
-          ? editData.id
+          ? editData!.id
           : `temp-${Date.now()}`
 
         const selectedCategory = categories.find(
