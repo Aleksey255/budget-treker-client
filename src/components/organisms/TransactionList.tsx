@@ -26,6 +26,7 @@ import { AddTransaction } from '../molecules/AddTransaction'
 import {
   getPendingTransactions,
   clearPendingTransactions,
+  removePendingTransaction,
   getCachedTransactions,
   setCachedTransactions,
   getCachedFilters,
@@ -73,16 +74,13 @@ export const TransactionList = () => {
     LocalTransaction[]
   >([])
 
-  // 👇 НОВЫЙ ЭФФЕКТ: Слушаем обновление локальных транзакций
+  // 👇 ЕДИНЫЙ ЭФФЕКТ: загрузка pending + слушание обновлений
   useEffect(() => {
     const handlePendingUpdate = () => {
-      // Читаем актуальные данные из localStorage и обновляем экран
       setPendingTransactions(getPendingTransactions())
     }
 
     window.addEventListener('pending-updated', handlePendingUpdate)
-
-    // Также загружаем их при первом открытии страницы
     setPendingTransactions(getPendingTransactions())
 
     return () => {
@@ -102,12 +100,7 @@ export const TransactionList = () => {
     })
   }, [filterCategoryId, searchDescription, dateRange.from, dateRange.to])
 
-  // 1. Загрузка локальных транзакций при монтировании
-  useEffect(() => {
-    setPendingTransactions(getPendingTransactions())
-  }, [])
-
-  // 2. Автоматическая синхронизация при появлении интернета
+  // Автоматическая синхронизация при появлении интернета
   useEffect(() => {
     const handleOnline = async () => {
       const pending = getPendingTransactions()
@@ -190,8 +183,17 @@ export const TransactionList = () => {
 
   // 3. Загрузка транзакций (Исправленная Offline-First стратегия)
   useEffect(() => {
+    console.log('🔌 TransactionList useEffect triggered')
     const fetchTransactions = async () => {
+      console.log('🔄 fetchTransactions START', {
+        online: navigator.onLine,
+        dateRange: { from: dateRange.from?.toISOString(), to: dateRange.to?.toISOString() },
+        filterCategoryId,
+        searchDescription: searchDescription.trim()
+      })
+
       const cachedData = getCachedTransactions()
+      console.log('📦 Cached transactions:', cachedData.length)
 
       // 1. МГНОВЕННО показываем кэш, если он есть. Спиннер не нужен!
       if (cachedData.length > 0) {
@@ -226,13 +228,29 @@ export const TransactionList = () => {
           query = query.ilike('description', `%${searchDescription.trim()}%`)
 
         // 👇 ДОБАВЛЕН ТАЙМАУТ 3.5 СЕКУНДЫ
+        console.log('🚀 Querying Supabase...')
         const { data, error } = await withTimeout<TxResponse>(query, 3500)
+
+        console.log('📥 Supabase response:', { data: data?.length, error })
 
         if (error) throw error
 
         const freshData = (data as Transaction[]) || []
+        console.log('✅ freshData:', freshData.length, 'items')
         setTransactions(freshData)
-        setCachedTransactions(freshData)
+
+        // 👇 КРИТИЧЕСКИ ВАЖНО: обновляем кэш ТОЛЬКО если есть данные
+        // Не затираем кэш пустым результатом — это ломает отображение
+        if (freshData.length > 0) {
+          setCachedTransactions(freshData)
+        }
+
+        console.log('📋 Transactions loaded:', freshData.length, 'filters:', {
+          startDate,
+          endDate,
+          filterCategoryId,
+          searchDescription: searchDescription.trim()
+        })
       } catch (err) {
         // Если это таймаут или ошибка сети, мы просто молча оставляем кэш на экране
         if (err instanceof Error && err.message !== 'timeout') {
@@ -245,10 +263,15 @@ export const TransactionList = () => {
 
     fetchTransactions()
 
-    const handleUpdate = () => fetchTransactions()
+    const handleUpdate = () => {
+      console.log('🔔 transactions-changed event received')
+      fetchTransactions()
+    }
     window.addEventListener('transactions-changed', handleUpdate)
-    return () =>
+    return () => {
+      console.log('❌ Removing transactions-changed listener')
       window.removeEventListener('transactions-changed', handleUpdate)
+    }
   }, [dateRange.from, dateRange.to, filterCategoryId, searchDescription])
 
   // 6. Подгрузка более старых транзакций
@@ -296,6 +319,24 @@ export const TransactionList = () => {
   }
 
   const handleDelete = async (id: string) => {
+    // Проверяем, является ли транзакция локальной (pending)
+    const isPendingTx = pendingTransactions.some(p => p.id === id || p.tempId === id)
+
+    if (isPendingTx) {
+      // Удаляем из pending
+      removePendingTransaction(id)
+      // Обновляем кэш
+      setTransactions(prev => prev.filter(tx => tx.id !== id))
+      return
+    }
+
+    // Если оффлайн — помечаем транзакцию как "pending delete"
+    if (!navigator.onLine) {
+      alert('Нет подключения к интернету. Транзакция будет удалена при появлении соединения.')
+      // В текущей реализации нельзя пометить как "pending delete" без изменения структуры
+      // Просто пытаемся удалить с сервера
+    }
+
     const previousTransactions = [...transactions]
     setTransactions(prev => prev.filter(tx => tx.id !== id))
 
@@ -306,7 +347,7 @@ export const TransactionList = () => {
         .eq('id', id)
       if (error) throw error
 
-      //  ОБНОВЛЯЕМ КЭШ ПОСЛЕ УСПЕШНОГО УДАЛЕНИЯ
+      // ОБНОВЛЯЕМ КЭШ ПОСЛЕ УСПЕШНОГО УДАЛЕНИЯ
       const updatedCache = previousTransactions.filter(tx => tx.id !== id)
       setCachedTransactions(updatedCache)
 

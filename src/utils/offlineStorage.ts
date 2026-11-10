@@ -37,6 +37,13 @@ export const clearPendingTransactions = () => {
   localStorage.removeItem(PENDING_KEY)
 }
 
+export const removePendingTransaction = (tempId: string) => {
+  const pending = getPendingTransactions()
+  const filtered = pending.filter(tx => tx.tempId !== tempId && tx.id !== tempId)
+  localStorage.setItem(PENDING_KEY, JSON.stringify(filtered))
+  window.dispatchEvent(new Event('pending-updated'))
+}
+
 export const getCachedTransactions = (): Transaction[] => {
   const stored = localStorage.getItem(CACHED_TX_KEY)
   return stored ? (JSON.parse(stored) as Transaction[]) : []

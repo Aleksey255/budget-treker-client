@@ -20,6 +20,30 @@ type AuthFormProps = {
   initialView?: 'login' | 'register' | 'forgotPassword'
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            'Превышено время ожидания. Проверьте подключение к интернету.'
+          )
+        ),
+      ms
+    )
+    promise.then(
+      value => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      error => {
+        clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
+}
+
 export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -65,40 +89,47 @@ export const AuthForm = ({ initialView = 'login' }: AuthFormProps) => {
         if (newPassword !== confirmPassword)
           throw new Error('Пароли не совпадают')
 
-        const { error } = await supabase.auth.updateUser({
-          password: newPassword,
-        })
-        if (error) throw error
+        const { error: error1 } = await withTimeout(
+          supabase.auth.updateUser({ password: newPassword }),
+          10000
+        )
+        if (error1) throw error1
 
         alert('Пароль успешно изменён. Теперь вы можете войти.')
-        navigate('/auth', { replace: true }) // Перенаправляем на чистый экран входа
+        navigate('/auth', { replace: true })
       } else if (view === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-        if (error) throw error
+        const { error: error2 } = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          10000
+        )
+        if (error2) throw error2
 
         navigate('/', { replace: true })
       } else if (view === 'register') {
         if (!name) throw new Error('Имя обязательно')
 
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: name } },
-        })
-        if (error) throw error
+        const { error: error3 } = await withTimeout(
+          supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: name } },
+          }),
+          10000
+        )
+        if (error3) throw error3
 
         alert('Регистрация успешна! Проверьте почту или попробуйте войти.')
         setView('login')
       } else if (view === 'forgotPassword') {
         if (!email) throw new Error('Email обязателен')
 
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth?reset=true`,
-        })
-        if (error) throw error
+        const { error: error4 } = await withTimeout(
+          supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth?reset=true`,
+          }),
+          10000
+        )
+        if (error4) throw error4
 
         alert('Ссылка для восстановления отправлена на ваш email')
         setView('login')
