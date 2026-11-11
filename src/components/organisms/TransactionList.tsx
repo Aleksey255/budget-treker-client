@@ -114,22 +114,41 @@ export const TransactionList = () => {
 
         const user = session.user
 
-        const txsToSend = pending.map(tx => ({
-          type: tx.type,
-          amount: tx.amount,
-          category_id: tx.category_id,
-          description: tx.description || null,
-          date: tx.date,
-          user_id: user.id,
-        }))
+        // Отправляем по одной записи: успешные убираем из очереди,
+        // а ошибочные оставляем для следующей попытки без повторной вставки первых.
+        const attemptedIds = new Set(pending.map(tx => tx.tempId || tx.id))
+        const failedIds = new Set<string>()
+        for (const tx of pending) {
+          const { error } = await supabase.from('transactions').insert({
+            type: tx.type,
+            amount: tx.amount,
+            category_id: tx.category_id,
+            description: tx.description || null,
+            date: tx.date,
+            user_id: tx.user_id || user.id,
+          })
+          if (error) {
+            failedIds.add(tx.tempId || tx.id)
+            console.error('Не удалось синхронизировать транзакцию:', error)
+          }
+        }
 
-        const { error } = await supabase.from('transactions').insert(txsToSend)
-
-        if (!error) {
-          clearPendingTransactions()
-          setPendingTransactions([])
+        const remaining = getPendingTransactions().filter(
+          tx => {
+            const id = tx.tempId || tx.id
+            return !attemptedIds.has(id) || failedIds.has(id)
+          }
+        )
+        if (remaining.length !== pending.length) {
+          if (remaining.length > 0) {
+            localStorage.setItem('pending_transactions', JSON.stringify(remaining))
+          } else {
+            clearPendingTransactions()
+          }
+          setPendingTransactions(remaining)
+          window.dispatchEvent(new Event('pending-updated'))
           window.dispatchEvent(new Event('transactions-changed'))
-          console.log('✅ Оффлайн-транзакции успешно синхронизированы!')
+          console.log('✅ Оффлайн-транзакции синхронизированы; оставшиеся будут повторены')
         }
       } catch (err) {
         console.error('Ошибка синхронизации:', err)
