@@ -161,19 +161,6 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
     setIsSubmitting(true)
 
     try {
-      const {
-        data: { session },
-        error: authError,
-      } = await supabase.auth.getSession()
-
-      if (authError || !session?.user) {
-        throw new Error(
-          'Пользователь не авторизован. Пожалуйста, войдите в систему при наличии интернета.'
-        )
-      }
-
-      const user = session.user
-
       const amountNum = parseFloat(newTransaction.amount)
       if (
         !newTransaction.amount ||
@@ -194,6 +181,9 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
       // ПРОВЕРКА: МЫ ОФФЛАЙН?
       if (!navigator.onLine) {
+        // Транзакцию можно поставить в локальную очередь без сетевого запроса.
+        // Если клиент уже знает пользователя, сохраняем его id для синхронизации.
+        const { data: { session } } = await supabase.auth.getSession()
         const isEditPending = editData?.id?.startsWith('temp-')
         const tempId = isEditPending
           ? editData!.id
@@ -208,7 +198,7 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
           ...payload,
           id: tempId,
           tempId: tempId,
-          user_id: user.id,
+          user_id: session?.user.id ?? (editData as LocalTransaction | null)?.user_id,
           isPending: true,
           category_name: categoryName,
         }
@@ -234,6 +224,18 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
       }
 
       // МЫ ОНЛАЙН: обычная работа с Supabase
+      const {
+        data: { session },
+        error: authError,
+      } = await supabase.auth.getSession()
+
+      if (authError || !session?.user) {
+        throw new Error(
+          'Пользователь не авторизован. Пожалуйста, войдите в систему при наличии интернета.'
+        )
+      }
+      const user = session.user
+
       let error
       if (editData) {
         if (editData.id.startsWith('temp-')) {
