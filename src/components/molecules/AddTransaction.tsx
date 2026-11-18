@@ -19,6 +19,9 @@ import {
   type LocalTransaction,
   getCachedCategories,
   setCachedCategories,
+  getCachedDescriptions,
+  setCachedDescriptions,
+  mergeDescriptions,
 } from '@/utils/offlineStorage'
 
 interface Category {
@@ -86,10 +89,8 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
         const cachedCategories = getCachedCategories()
         if (cachedCategories.length > 0) setCategories(cachedCategories)
 
-        const cachedDescriptions = localStorage.getItem('cached_descriptions')
-        if (cachedDescriptions) {
-          setDescriptionOptions(JSON.parse(cachedDescriptions))
-        }
+        const cachedDescriptions = getCachedDescriptions()
+        setDescriptionOptions(cachedDescriptions)
 
         // 2. Если есть интернет, обновляем данные и кэш
         if (navigator.onLine) {
@@ -109,18 +110,16 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
             .not('description', 'is', null)
             .neq('description', '')
             .order('date', { ascending: false })
-            .limit(100)
+            .limit(1000)
 
           if (descData) {
-            const uniqueDescriptions = [
-              ...new Set(descData.map(t => t.description).filter(Boolean)),
-            ] as string[]
+            const uniqueDescriptions = mergeDescriptions(
+              cachedDescriptions,
+              descData.map(t => t.description)
+            )
 
             setDescriptionOptions(uniqueDescriptions)
-            localStorage.setItem(
-              'cached_descriptions',
-              JSON.stringify(uniqueDescriptions)
-            )
+            setCachedDescriptions(uniqueDescriptions)
           }
         }
       } catch (err) {

@@ -28,6 +28,40 @@ const PENDING_KEY = 'pending_transactions'
 const CACHED_TX_KEY = 'cached_transactions'
 const CACHED_FILTERS_KEY = 'cached_filters'
 const CACHED_CATEGORIES_KEY = 'cached_categories'
+const CACHED_DESCRIPTIONS_KEY = 'cached_descriptions'
+
+export const getCachedDescriptions = (): string[] => {
+  try {
+    const stored = localStorage.getItem(CACHED_DESCRIPTIONS_KEY)
+    const descriptions: unknown = stored ? JSON.parse(stored) : []
+    return Array.isArray(descriptions)
+      ? descriptions.filter(
+          (description): description is string =>
+            typeof description === 'string' && description.trim().length > 0
+        )
+      : []
+  } catch {
+    return []
+  }
+}
+
+export const mergeDescriptions = (
+  ...descriptionLists: Array<Array<string | null | undefined>>
+): string[] => {
+  const unique = new Map<string, string>()
+  for (const description of descriptionLists.flat()) {
+    const trimmed = description?.trim()
+    if (trimmed) unique.set(trimmed.toLocaleLowerCase(), trimmed)
+  }
+  return Array.from(unique.values())
+}
+
+export const setCachedDescriptions = (descriptions: string[]) => {
+  localStorage.setItem(
+    CACHED_DESCRIPTIONS_KEY,
+    JSON.stringify(mergeDescriptions(descriptions))
+  )
+}
 
 export const getCachedCategories = (): CachedCategory[] => {
   try {
