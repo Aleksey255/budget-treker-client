@@ -33,6 +33,8 @@ import {
   getCachedFilters,
   setCachedFilters,
   withTimeout,
+  getCachedCategories,
+  setCachedCategories,
   type LocalTransaction,
 } from '@/utils/offlineStorage'
 import { EditButton } from '../atoms/EditButton'
@@ -166,11 +168,21 @@ export const TransactionList = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const { data: catData } = await supabase
-          .from('categories')
-          .select('id, name, type')
-          .order('name')
-        if (catData) setCategories(catData)
+        const cachedCategories = getCachedCategories()
+        if (cachedCategories.length > 0) setCategories(cachedCategories)
+
+        const { data: catData, error: catError } = await withTimeout(
+          supabase
+            .from('categories')
+            .select('id, name, type')
+            .order('name'),
+          5000
+        )
+        if (catError) throw catError
+        if (catData) {
+          setCategories(catData)
+          setCachedCategories(catData)
+        }
 
         const { data: descData } = await supabase
           .from('transactions')

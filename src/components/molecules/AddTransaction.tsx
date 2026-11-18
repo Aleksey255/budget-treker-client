@@ -17,6 +17,8 @@ import { type Transaction } from '@/types/transaction'
 import {
   savePendingTransaction,
   type LocalTransaction,
+  getCachedCategories,
+  setCachedCategories,
 } from '@/utils/offlineStorage'
 
 interface Category {
@@ -81,10 +83,8 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
     const fetchData = async () => {
       try {
         // 1. Инициализируем массивы из кэша (гарантирует работу оффлайн)
-        const cachedCategories = localStorage.getItem('cached_categories')
-        if (cachedCategories) {
-          setCategories(JSON.parse(cachedCategories))
-        }
+        const cachedCategories = getCachedCategories()
+        if (cachedCategories.length > 0) setCategories(cachedCategories)
 
         const cachedDescriptions = localStorage.getItem('cached_descriptions')
         if (cachedDescriptions) {
@@ -100,7 +100,7 @@ export const AddTransaction = ({ onClose, editData }: AddTransactionProps) => {
 
           if (!catError && catData) {
             setCategories(catData)
-            localStorage.setItem('cached_categories', JSON.stringify(catData))
+            setCachedCategories(catData)
           }
 
           const { data: descData } = await supabase
