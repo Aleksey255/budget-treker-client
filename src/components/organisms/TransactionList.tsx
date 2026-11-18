@@ -21,7 +21,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { RadialTransactionChart } from '../molecules/RadialTransactionChart'
 import { getCategoryName, type Transaction, type TxResponse } from '@/types/transaction'
-import { useDateFilter, formatDateForQuery } from '@/context/DateFilterContext'
+import { useDateFilter } from '@/context/useDateFilter'
+import { formatDateForQuery } from '@/context/dateFilterUtils'
 import { AddTransaction } from '../molecules/AddTransaction'
 import {
   getPendingTransactions,

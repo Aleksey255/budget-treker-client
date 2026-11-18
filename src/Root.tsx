@@ -1,6 +1,6 @@
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
-import { useTheme } from './context/ThemeContext'
+import { useTheme } from './context/useTheme'
 import { DateFilterProvider } from './context/DateFilterContext'
 
 import { BrowserRouter } from 'react-router-dom'

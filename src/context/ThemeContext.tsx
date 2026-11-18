@@ -1,19 +1,8 @@
-import { createContext, useState, useContext, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { ThemeProvider as MuiThemeProvider } from '@mui/material'
 import { lightTheme } from '../styles/theme/lightTheme'
 import { darkTheme } from '../styles/theme/darkTheme'
-
-interface ThemeContextType {
-  theme: typeof darkTheme
-  toggleTheme: () => void
-}
-
-const ThemeContext = createContext<ThemeContextType>({
-  theme: darkTheme,
-  toggleTheme: () => {},
-})
-
-export const useTheme = () => useContext(ThemeContext)
+import { ThemeContext } from './theme-context'
 
 export const ThemeProviderWrapper = ({
   children,
