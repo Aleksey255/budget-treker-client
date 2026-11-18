@@ -22,12 +22,13 @@ import { CustomModal } from '../molecules/CustomModal'
 import { supabase } from '@/lib/supabaseClient'
 import { EditButton } from '../atoms/EditButton'
 import { DeleteButton } from '../atoms/DeleteButton'
+import {
+  getCachedCategories,
+  setCachedCategories,
+  type CachedCategory,
+} from '@/utils/offlineStorage'
 
-interface Category {
-  id: string
-  name: string
-  type: 'income' | 'expense' | 'both'
-}
+type Category = CachedCategory
 
 export const CategoryList = () => {
   const [categories, setCategories] = useState<Category[]>([])
@@ -67,6 +68,12 @@ export const CategoryList = () => {
   }, [])
 
   const fetchCategories = useCallback(async () => {
+    const cachedCategories = getCachedCategories()
+    if (cachedCategories.length > 0) {
+      setCategories(cachedCategories)
+      setIsLoading(false)
+    }
+
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -74,12 +81,16 @@ export const CategoryList = () => {
         .order('name')
 
       if (error) throw error
-      setCategories(data || [])
+      const nextCategories = data || []
+      setCategories(nextCategories)
+      setCachedCategories(nextCategories)
     } catch (err) {
-      showSnackbar(
-        err instanceof Error ? err.message : 'Ошибка загрузки категорий',
-        'error'
-      )
+      if (cachedCategories.length === 0) {
+        showSnackbar(
+          err instanceof Error ? err.message : 'Ошибка загрузки категорий',
+          'error'
+        )
+      }
     } finally {
       setIsLoading(false)
     }
@@ -129,6 +140,7 @@ export const CategoryList = () => {
       if (error) throw error
 
       setCategories(prev => [...prev, data])
+      setCachedCategories([...categories, data])
       setNewCategory('')
       showSnackbar('Категория успешно добавлена', 'success')
     } catch (err) {
@@ -164,6 +176,13 @@ export const CategoryList = () => {
               : c
           )
         )
+        setCachedCategories(
+          categories.map(c =>
+            c.id === editCategory.id
+              ? { ...c, name: trimmed, type: editCategory.type }
+              : c
+          )
+        )
         handleCloseModal()
         showSnackbar('Категория обновлена', 'success')
       } catch (err) {
@@ -181,6 +200,7 @@ export const CategoryList = () => {
       if (error) throw error
 
       setCategories(prev => prev.filter(c => c.id !== id))
+      setCachedCategories(categories.filter(c => c.id !== id))
       showSnackbar('Категория удалена', 'success')
     } catch (err) {
       showSnackbar(

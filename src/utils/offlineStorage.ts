@@ -9,6 +9,12 @@ export interface LocalTransaction extends Transaction {
   category_name?: string
 }
 
+export interface CachedCategory {
+  id: string
+  name: string
+  type: 'income' | 'expense' | 'both'
+}
+
 interface CachedFilters {
   filterCategoryId: string
   searchDescription: string
@@ -21,6 +27,20 @@ interface CachedFilters {
 const PENDING_KEY = 'pending_transactions'
 const CACHED_TX_KEY = 'cached_transactions'
 const CACHED_FILTERS_KEY = 'cached_filters'
+const CACHED_CATEGORIES_KEY = 'cached_categories'
+
+export const getCachedCategories = (): CachedCategory[] => {
+  try {
+    const stored = localStorage.getItem(CACHED_CATEGORIES_KEY)
+    return stored ? (JSON.parse(stored) as CachedCategory[]) : []
+  } catch {
+    return []
+  }
+}
+
+export const setCachedCategories = (categories: CachedCategory[]) => {
+  localStorage.setItem(CACHED_CATEGORIES_KEY, JSON.stringify(categories))
+}
 
 export const getPendingTransactions = (): LocalTransaction[] => {
   const stored = localStorage.getItem(PENDING_KEY)
