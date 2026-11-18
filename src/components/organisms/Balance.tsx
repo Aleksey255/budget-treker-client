@@ -11,12 +11,19 @@ import {
 import { useCallback, useState, useEffect } from 'react'
 import { DateRangePicker } from '../molecules/DateRangePicker'
 import { supabase } from '@/lib/supabaseClient'
-import { useDateFilter, formatDateForQuery } from '@/context/DateFilterContext'
+import { useDateFilter } from '@/context/useDateFilter'
+import { formatDateForQuery } from '@/context/dateFilterUtils'
 import {
   getCachedTransactions,
   getPendingTransactions,
   withTimeout,
 } from '@/utils/offlineStorage'
+
+type TransactionRow = {
+  date: string
+  amount: number | string
+  type: 'income' | 'expense'
+}
 
 export const Balance = () => {
   const { dateRange, setDateRange, resetDateRange } = useDateFilter()
@@ -58,7 +65,7 @@ export const Balance = () => {
         if (data) {
           // Собираем даты серверных транзакций, чтобы исключить дублирование с pending
           const serverDates = new Set(
-            (data as any[]).map((tx: any) => tx.date)
+            (data as TransactionRow[]).map(tx => tx.date)
           )
 
           for (const tx of data) {

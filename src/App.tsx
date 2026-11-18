@@ -8,7 +8,7 @@ import {
   Box,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
-import { useTheme } from './context/ThemeContext'
+import { useTheme } from './context/useTheme'
 import { CategoryPage } from './pages/CategoryPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { Navigate, Route, Routes } from 'react-router-dom'
@@ -33,6 +33,12 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Не пытаться обновлять токен, пока приложение работает без сети.
+    // Иначе неудачный refresh может удалить сохранённую локальную сессию.
+    if (!navigator.onLine) {
+      void supabase.auth.stopAutoRefresh()
+    }
+
     // 1. СРАЗУ читаем сессию из localStorage (работает оффлайн!)
     // getSession() может долго ждать при плохом интернете — добавляем таймаут 3 сек
     const sessionPromise = supabase.auth.getSession()
@@ -69,12 +75,34 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Просто обновляем флаг. Не делаем navigate() здесь!
-      setIsAuthenticated(!!session)
+      // В офлайне Supabase может прислать SIGNED_OUT после неудачного refresh.
+      // Сохраняем доступ к локальным данным до восстановления сети.
+      if (session) {
+        setIsAuthenticated(true)
+      } else if (navigator.onLine) {
+        setIsAuthenticated(false)
+      }
     })
 
+    const handleOnline = () => {
+      void supabase.auth.startAutoRefresh()
+      void supabase.auth.getSession().then(({ data: { session } }) => {
+        setIsAuthenticated(!!session)
+      })
+    }
+    const handleOffline = () => {
+      void supabase.auth.stopAutoRefresh()
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
     // Очистка подписки при размонтировании
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, []) // Убрали navigate из зависимостей
 
   const toggleSidebar = () => {

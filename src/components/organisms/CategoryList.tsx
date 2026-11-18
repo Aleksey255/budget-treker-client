@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Box,
   Button,
@@ -62,11 +62,11 @@ export const CategoryList = () => {
     severity: 'success',
   })
 
-  useEffect(() => {
-    fetchCategories()
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity })
   }, [])
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -83,11 +83,11 @@ export const CategoryList = () => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [showSnackbar])
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity })
-  }
+  useEffect(() => {
+    void fetchCategories()
+  }, [fetchCategories])
 
   const sortedCategories = [...categories].sort((a, b) =>
     a.name.localeCompare(b.name)
