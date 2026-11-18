@@ -35,6 +35,9 @@ import {
   withTimeout,
   getCachedCategories,
   setCachedCategories,
+  getCachedDescriptions,
+  setCachedDescriptions,
+  mergeDescriptions,
   type LocalTransaction,
 } from '@/utils/offlineStorage'
 import { EditButton } from '../atoms/EditButton'
@@ -167,6 +170,9 @@ export const TransactionList = () => {
   // 3. Загрузка категорий и вариантов описаний
   useEffect(() => {
     const fetchInitialData = async () => {
+      const cachedDescriptions = getCachedDescriptions()
+      setDescriptionOptions(cachedDescriptions)
+
       try {
         const cachedCategories = getCachedCategories()
         if (cachedCategories.length > 0) setCategories(cachedCategories)
@@ -190,13 +196,15 @@ export const TransactionList = () => {
           .not('description', 'is', null)
           .neq('description', '')
           .order('date', { ascending: false })
-          .limit(100)
+          .limit(1000)
 
         if (descData) {
-          const uniqueDescriptions = [
-            ...new Set(descData.map(t => t.description).filter(Boolean)),
-          ]
+          const uniqueDescriptions = mergeDescriptions(
+            cachedDescriptions,
+            descData.map(t => t.description)
+          )
           setDescriptionOptions(uniqueDescriptions as string[])
+          setCachedDescriptions(uniqueDescriptions)
         }
       } catch (err) {
         console.error('Ошибка загрузки данных для фильтров:', err)
